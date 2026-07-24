@@ -190,8 +190,8 @@ export function commentAbilityComponent(k) {
           this.pos.y = platTop - playerHalfHeight - 1;
 
           // Reset vertical velocity since we repositioned
-          if (this.velocityY !== undefined) {
-            this.velocityY = 0;
+          if (this.vel) {
+            this.vel.y = 0;
           }
           break;
         }
