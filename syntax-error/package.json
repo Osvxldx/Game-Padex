@@ -5,6 +5,7 @@
 		"build": "vite build",
 		"dev": "vite",
 		"preview": "vite preview",
+		"test": "vitest --run",
 		"zip": "npm run build && mkdir -p dist && zip -r dist/game.zip dist -x \"**/.DS_Store\""
 	},
 	"dependencies": {
@@ -12,6 +13,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^26.1.1",
-		"vite": "^8.1.5"
+		"vite": "^8.1.5",
+		"vitest": "^4.1.10"
 	}
 }

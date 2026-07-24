@@ -90,8 +90,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Verificar que tras morir: posición = checkpoint, velocidad = (0,0), cooldown disponible, warnings = 0
     - **Valida: Requisitos 4.1, 4.3, 3.9**
 
-- [ ] 5. Sistema de temas visuales (5 temas)
-  - [ ] 5.1 Implementar ThemeManager con los 5 temas
+- [x] 5. Sistema de temas visuales (5 temas)
+  - [x] 5.1 Implementar ThemeManager con los 5 temas
     - Crear `src/systems/themeManager.js`
     - Definir paletas de colores para: Terminal Retro, IDE Dark, IDE Light, Blueprint, BSOD
     - Implementar `applyTheme(themeName)` que actualiza todos los elementos visibles en <200ms
@@ -99,8 +99,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Aplicar tema guardado al iniciar; usar "Terminal Retro" como default
     - _Requisitos: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-- [ ] 6. Sistema de persistencia (LocalStorage)
-  - [ ] 6.1 Implementar SaveManager con serialización/deserialización
+- [x] 6. Sistema de persistencia (LocalStorage)
+  - [x] 6.1 Implementar SaveManager con serialización/deserialización
     - Crear `src/systems/saveManager.js`
     - Estructura: `{levelsCompleted, currentTheme, audioVolume, memoryAddresses}`
     - Serializar a JSON, guardar en LocalStorage con clave "syntax-error-save"
