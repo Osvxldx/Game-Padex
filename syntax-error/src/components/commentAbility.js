@@ -4,237 +4,419 @@ import {
   COMMENT_OPACITY,
 } from "../constants.js";
 
+export const LOGICAL_OBSTACLE_TAGS = Object.freeze([
+  "gc-zone",
+  "loop-zone",
+  "warning-sign",
+]);
+
+const PLATFORM_TAG = "platform";
+const INDICATOR_WIDTH = 30;
+const OVERLAP_GAP = 1;
+const TIMER_EPSILON = 1e-9;
+
+function tickCountdown(timer, dt) {
+  const remaining = timer - Math.max(0, dt);
+  return remaining <= TIMER_EPSILON ? 0 : remaining;
+}
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function asBounds(rect) {
+  if (
+    !rect?.pos
+    || !Number.isFinite(rect.pos.x)
+    || !Number.isFinite(rect.pos.y)
+    || !Number.isFinite(rect.width)
+    || !Number.isFinite(rect.height)
+  ) {
+    return null;
+  }
+
+  const x2 = rect.pos.x + rect.width;
+  const y2 = rect.pos.y + rect.height;
+  return {
+    left: Math.min(rect.pos.x, x2),
+    right: Math.max(rect.pos.x, x2),
+    top: Math.min(rect.pos.y, y2),
+    bottom: Math.max(rect.pos.y, y2),
+  };
+}
+
+function overlaps(a, b) {
+  return a.left < b.right
+    && a.right > b.left
+    && a.top < b.bottom
+    && a.bottom > b.top;
+}
+
+function overlapsHorizontally(a, b) {
+  return a.left < b.right && a.right > b.left;
+}
+
+function shiftedVertically(bounds, offset) {
+  return {
+    left: bounds.left,
+    right: bounds.right,
+    top: bounds.top + offset,
+    bottom: bounds.bottom + offset,
+  };
+}
+
 /**
- * Custom KAPLAY component factory for the "Comment Code" ability.
- * When activated, the player becomes semi-transparent, shows "// ;" prefix,
- * ignores logical obstacles, and falls through platforms.
- *
- * @param {object} k - The kaplay instance
- * @returns {object} KAPLAY component definition
+ * Find the closest upward player position that clears every horizontally
+ * relevant platform. Returns null when the player is not inside a platform or
+ * when valid collider bounds are unavailable.
+ */
+export function findNearestSafeYAbovePlatforms(
+  playerRect,
+  platformRects,
+  currentY,
+  gap = OVERLAP_GAP,
+) {
+  const player = asBounds(playerRect);
+  if (!player || !Number.isFinite(currentY)) {
+    return null;
+  }
+
+  const platforms = platformRects
+    .map(asBounds)
+    .filter(Boolean);
+  const overlapping = platforms.filter((platform) => overlaps(player, platform));
+
+  if (overlapping.length === 0) {
+    return null;
+  }
+
+  const horizontalPlatforms = platforms.filter(
+    (platform) => overlapsHorizontally(player, platform),
+  );
+  const safeGap = Math.max(0, Number.isFinite(gap) ? gap : 0);
+
+  // Every platform surface above the player's bottom is a deterministic
+  // candidate. Nearest candidates are tested first, but a candidate is only
+  // accepted when it clears all platforms, not merely the first overlap.
+  const candidates = horizontalPlatforms
+    .filter((platform) => platform.top < player.bottom)
+    .map((platform) => ({
+      y: currentY + platform.top - player.bottom - safeGap,
+      top: platform.top,
+      left: platform.left,
+    }))
+    .filter((candidate) => candidate.y <= currentY)
+    .sort((a, b) => b.y - a.y || a.top - b.top || a.left - b.left);
+
+  const seen = new Set();
+  for (const candidate of candidates) {
+    if (seen.has(candidate.y)) continue;
+    seen.add(candidate.y);
+
+    const shifted = shiftedVertically(player, candidate.y - currentY);
+    if (!platforms.some((platform) => overlaps(shifted, platform))) {
+      return candidate.y;
+    }
+  }
+
+  return null;
+}
+
+/** Return whether a tag or tagged KAPLAY object is a logical obstacle. */
+export function isLogicalObstacle(obstacleOrTag) {
+  if (typeof obstacleOrTag === "string") {
+    return LOGICAL_OBSTACLE_TAGS.includes(obstacleOrTag);
+  }
+
+  if (typeof obstacleOrTag?.is === "function") {
+    return LOGICAL_OBSTACLE_TAGS.some((tag) => obstacleOrTag.is(tag));
+  }
+
+  if (Array.isArray(obstacleOrTag?.tags)) {
+    return LOGICAL_OBSTACLE_TAGS.some((tag) => obstacleOrTag.tags.includes(tag));
+  }
+
+  return false;
+}
+
+/**
+ * Custom KAPLAY component for the Comment Code ability.
+ * area().collisionIgnore disables only platform contacts; body() remains
+ * enabled and therefore continues to integrate gravity and vertical velocity.
  */
 export function commentAbilityComponent(k) {
-  // Original player color (blue)
-  const ORIGINAL_COLOR = k.rgb(88, 166, 255);
-  // Grayscale color during comment state
   const COMMENT_COLOR = k.rgb(150, 150, 150);
 
   return {
     id: "commentAbility",
+    require: ["pos", "area", "body", "opacity", "color", "text"],
 
-    // State tracking
     isCommented: false,
     commentTimer: 0,
     cooldownTimer: 0,
     canActivate: true,
 
-    // Internal references
     _cooldownIndicator: null,
-    _originalText: ";",
-    _platformCollisionActive: true,
+    _cooldownFill: null,
+    _commentVisualSnapshot: null,
+    _addedPlatformCollisionIgnore: false,
 
     add() {
-      // Create cooldown indicator (small bar below the player)
-      this._cooldownIndicator = k.add([
-        k.rect(30, 4),
-        k.pos(this.pos.x, this.pos.y + 30),
-        k.anchor("center"),
-        k.color(100, 200, 100),
-        k.opacity(0),
+      // A child follows the player and is destroyed with it on death or scene
+      // changes. The fill is left-anchored so width maps directly to time left.
+      this._cooldownIndicator = this.add([
+        k.pos(0, 35),
         k.z(100),
-        "cooldown-indicator",
+        "comment-cooldown-indicator",
       ]);
+      this._cooldownIndicator.hidden = true;
+
+      this._cooldownIndicator.add([
+        k.rect(INDICATOR_WIDTH + 2, 6),
+        k.pos(-INDICATOR_WIDTH / 2 - 1, -1),
+        k.anchor("left"),
+        k.color(35, 40, 47),
+        k.opacity(0.9),
+      ]);
+
+      this._cooldownFill = this._cooldownIndicator.add([
+        k.rect(INDICATOR_WIDTH, 4),
+        k.pos(-INDICATOR_WIDTH / 2, 0),
+        k.anchor("left"),
+        k.color(248, 81, 73),
+        k.opacity(0.95),
+      ]);
+      this._updateCooldownIndicator();
     },
 
     destroy() {
-      if (this._cooldownIndicator) {
-        k.destroy(this._cooldownIndicator);
-        this._cooldownIndicator = null;
-      }
+      // Child destruction is owned by the KAPLAY scene graph. Drop references
+      // here so no external HUD code can retain a stale game object.
+      this._cooldownIndicator = null;
+      this._cooldownFill = null;
+      this._commentVisualSnapshot = null;
     },
 
     update() {
-      const dt = k.dt();
+      const dt = Math.max(0, Number(k.dt()) || 0);
 
-      // --- Activation Input ---
-      if (k.isKeyPressed("shift") || k.isKeyPressed("c")) {
-        if (this.canActivate && !this.isCommented) {
-          this._activateComment();
-        }
-      }
-
-      // --- Comment State Timer ---
+      // An activation receives the full 0.5 seconds: existing timers advance
+      // before new input is accepted, and a newly-started cooldown is not
+      // decremented during the expiration frame.
       if (this.isCommented) {
-        this.commentTimer -= dt;
-        if (this.commentTimer <= 0) {
-          this._deactivateComment();
+        this.commentTimer = tickCountdown(this.commentTimer, dt);
+        if (this.commentTimer === 0) {
+          this.finishComment();
         }
-      }
-
-      // --- Cooldown Timer ---
-      if (!this.canActivate && !this.isCommented) {
-        this.cooldownTimer -= dt;
-        if (this.cooldownTimer <= 0) {
-          this.cooldownTimer = 0;
+      } else if (this.cooldownTimer > 0) {
+        this.cooldownTimer = tickCountdown(this.cooldownTimer, dt);
+        if (this.cooldownTimer === 0) {
           this.canActivate = true;
+          this.trigger?.("comment-ready");
         }
       }
 
-      // --- Update cooldown indicator position and display ---
-      if (this._cooldownIndicator) {
-        this._cooldownIndicator.pos.x = this.pos.x;
-        this._cooldownIndicator.pos.y = this.pos.y + 35;
-
-        if (!this.canActivate && !this.isCommented) {
-          // Show cooldown progress
-          const progress = this.cooldownTimer / COMMENT_COOLDOWN;
-          this._cooldownIndicator.opacity = 0.8;
-          this._cooldownIndicator.width = 30 * progress;
-          this._cooldownIndicator.color = k.rgb(200, 100, 100);
-        } else if (this.isCommented) {
-          // Show comment duration remaining
-          const progress = this.commentTimer / COMMENT_DURATION;
-          this._cooldownIndicator.opacity = 0.9;
-          this._cooldownIndicator.width = 30 * progress;
-          this._cooldownIndicator.color = k.rgb(100, 200, 255);
-        } else {
-          // Ability ready - briefly flash or hide
-          this._cooldownIndicator.opacity = 0;
-        }
+      if (k.isKeyPressed("shift") || k.isKeyPressed("c")) {
+        this.activateComment();
       }
 
-      // --- Handle platform collision during comment state ---
-      if (this.isCommented && this._platformCollisionActive) {
-        this._platformCollisionActive = false;
-        // Mark collision ignore for platforms
-        if (this.collisionIgnore) {
-          if (!this.collisionIgnore.includes("platform")) {
-            this.collisionIgnore.push("platform");
-          }
-        } else {
-          this.collisionIgnore = ["platform"];
-        }
-      }
+      this._updateCooldownIndicator();
     },
 
-    /**
-     * Activate the comment state.
-     */
-    _activateComment() {
+    /** Return true only when a new activation was accepted. */
+    activateComment() {
+      if (!this.canActivateComment()) {
+        return false;
+      }
+
+      this._commentVisualSnapshot = {
+        opacity: this.opacity,
+        color: this.color,
+        text: this.text,
+      };
       this.isCommented = true;
       this.commentTimer = COMMENT_DURATION;
+      this.cooldownTimer = 0;
       this.canActivate = false;
 
-      // Visual changes: reduced opacity, grayscale, show "// ;"
       this.opacity = COMMENT_OPACITY;
       this.color = COMMENT_COLOR;
-      // Change text to show comment prefix
-      if (this.text !== undefined) {
-        this.text = "// ;";
-      }
+      this.text = "// ;";
+      this._ignorePlatformCollisions();
+      this._updateCooldownIndicator();
+      this.trigger?.("comment-start");
+      return true;
+    },
 
-      // Disable platform collisions
-      this._platformCollisionActive = false;
-      if (this.collisionIgnore) {
-        if (!this.collisionIgnore.includes("platform")) {
-          this.collisionIgnore.push("platform");
-        }
-      } else {
-        this.collisionIgnore = ["platform"];
-      }
+    /** Return whether activation is currently legal. */
+    canActivateComment() {
+      return this.canActivate
+        && !this.isCommented
+        && this.cooldownTimer === 0;
     },
 
     /**
-     * Deactivate the comment state and restore normal behavior.
+     * Finish a live comment normally, restore collisions safely, and begin the
+     * two-second cooldown. Returns false if there was no active comment.
      */
-    _deactivateComment() {
-      this.isCommented = false;
-      this.commentTimer = 0;
-
-      // Restore visuals
-      this.opacity = 1.0;
-      this.color = ORIGINAL_COLOR;
-      if (this.text !== undefined) {
-        this.text = ";";
+    finishComment() {
+      if (!this.isCommented) {
+        return false;
       }
 
-      // Re-enable platform collisions
-      this._platformCollisionActive = true;
-      if (this.collisionIgnore) {
-        const idx = this.collisionIgnore.indexOf("platform");
-        if (idx !== -1) {
-          this.collisionIgnore.splice(idx, 1);
-        }
-      }
-
-      // Start cooldown
+      this._leaveCommentState();
       this.cooldownTimer = COMMENT_COOLDOWN;
-
-      // Handle "stuck in platform" case: reposition above nearest platform
-      this._resolveOverlap();
+      this.canActivate = false;
+      this._resolvePlatformOverlap();
+      this._updateCooldownIndicator();
+      this.trigger?.("comment-end", "expired");
+      return true;
     },
 
     /**
-     * Resolve overlap with platforms after comment state ends.
-     * If the player is inside a platform, move them above it.
+     * Death/respawn hook: cancel immediately and make the ability available
+     * without starting cooldown or moving the dying player.
      */
-    _resolveOverlap() {
-      // Get all platforms and check for overlap
-      const platforms = k.get("platform");
-      for (const plat of platforms) {
-        if (this.isOverlapping(plat)) {
-          // Move player above the platform surface
-          const platTop = plat.pos.y;
-          // Account for anchor - if platform uses "topleft", top is pos.y
-          // Player uses "center" anchor, so offset by half height
-          const playerHalfHeight = this.height ? this.height / 2 : 24;
-          this.pos.y = platTop - playerHalfHeight - 1;
-
-          // Reset vertical velocity since we repositioned
-          if (this.vel) {
-            this.vel.y = 0;
-          }
-          break;
-        }
+    cancelCommentWithoutCooldown() {
+      const wasCommented = this.isCommented;
+      this._leaveCommentState();
+      this.commentTimer = 0;
+      this.cooldownTimer = 0;
+      this.canActivate = true;
+      this._updateCooldownIndicator();
+      if (wasCommented) {
+        this.trigger?.("comment-end", "cancelled");
       }
     },
 
-    /**
-     * Cancel comment state without starting cooldown (used when player dies).
-     */
+    /** Backward-compatible death cancellation name. */
     cancelComment() {
-      if (this.isCommented) {
-        this.isCommented = false;
-        this.commentTimer = 0;
+      this.cancelCommentWithoutCooldown();
+    },
 
-        // Restore visuals
-        this.opacity = 1.0;
-        this.color = ORIGINAL_COLOR;
-        if (this.text !== undefined) {
-          this.text = ";";
-        }
+    /** Restore the complete default ability state for respawn/restart. */
+    resetCommentAbility() {
+      this.cancelCommentWithoutCooldown();
+    },
 
-        // Re-enable platform collisions
-        this._platformCollisionActive = true;
-        if (this.collisionIgnore) {
-          const idx = this.collisionIgnore.indexOf("platform");
-          if (idx !== -1) {
-            this.collisionIgnore.splice(idx, 1);
-          }
-        }
+    /** Current state for HUDs and integration code, without mutable internals. */
+    getCommentAbilityState() {
+      return {
+        isCommented: this.isCommented,
+        commentRemaining: this.commentTimer,
+        cooldownRemaining: this.cooldownTimer,
+        cooldownProgress: this.getCooldownProgress(),
+        canActivate: this.canActivateComment(),
+        indicatorVisible: Boolean(
+          this._cooldownIndicator && !this._cooldownIndicator.hidden
+        ),
+        indicatorWidth: this._cooldownFill?.width ?? 0,
+      };
+    },
 
-        // Do NOT start cooldown - ability resets to available
-        this.cooldownTimer = 0;
-        this.canActivate = true;
-      }
+    getCooldownProgress() {
+      return clamp01(this.cooldownTimer / COMMENT_COOLDOWN);
     },
 
     /**
-     * Check if the player should be immune to a logical obstacle.
-     * Other mechanics should call this to check before applying effects.
-     * @returns {boolean} Whether the player is immune to logical obstacles
+     * Update the normal-state color without breaking an active commented
+     * visual. Theme changes during pause are restored when Comment Code ends.
      */
+    setCommentBaseColor(color) {
+      if (this.isCommented && this._commentVisualSnapshot) {
+        this._commentVisualSnapshot.color = color;
+      } else {
+        this.color = color;
+      }
+    },
+
+    /** General state query used by timers such as Garbage Collector. */
     isImmuneToLogic() {
       return this.isCommented;
+    },
+
+    /** Stable collision-gate API for GC, loop, and warning mechanics. */
+    shouldIgnoreLogicalObstacle(obstacleOrTag) {
+      return this.isCommented && isLogicalObstacle(obstacleOrTag);
+    },
+
+    _leaveCommentState() {
+      this.isCommented = false;
+      this.commentTimer = 0;
+      this._restorePlatformCollisions();
+
+      if (this._commentVisualSnapshot) {
+        this.opacity = this._commentVisualSnapshot.opacity;
+        this.color = this._commentVisualSnapshot.color;
+        this.text = this._commentVisualSnapshot.text;
+        this._commentVisualSnapshot = null;
+      }
+    },
+
+    _ignorePlatformCollisions() {
+      if (!Array.isArray(this.collisionIgnore)) {
+        this.collisionIgnore = [];
+      }
+
+      this._addedPlatformCollisionIgnore = !this.collisionIgnore.includes(
+        PLATFORM_TAG,
+      );
+      if (this._addedPlatformCollisionIgnore) {
+        this.collisionIgnore.push(PLATFORM_TAG);
+      }
+    },
+
+    _restorePlatformCollisions() {
+      if (this._addedPlatformCollisionIgnore) {
+        const index = this.collisionIgnore?.indexOf(PLATFORM_TAG) ?? -1;
+        if (index >= 0) {
+          this.collisionIgnore.splice(index, 1);
+        }
+      }
+      this._addedPlatformCollisionIgnore = false;
+    },
+
+    _resolvePlatformOverlap() {
+      if (typeof this.worldArea !== "function") {
+        return false;
+      }
+
+      const playerRect = this.worldArea().bbox();
+      const platformRects = [];
+      for (const platform of k.get(PLATFORM_TAG, { recursive: true })) {
+        if (
+          (typeof platform.exists === "function" && !platform.exists())
+          || typeof platform.worldArea !== "function"
+        ) {
+          continue;
+        }
+        platformRects.push(platform.worldArea().bbox());
+      }
+
+      const safeY = findNearestSafeYAbovePlatforms(
+        playerRect,
+        platformRects,
+        this.pos.y,
+      );
+      if (safeY === null) {
+        return false;
+      }
+
+      this.pos.y = safeY;
+      this.vel.y = 0;
+      return true;
+    },
+
+    _updateCooldownIndicator() {
+      if (!this._cooldownIndicator || !this._cooldownFill) {
+        return;
+      }
+
+      const visible = !this.isCommented && this.cooldownTimer > 0;
+      this._cooldownIndicator.hidden = !visible;
+      this._cooldownFill.width = visible
+        ? INDICATOR_WIDTH * this.getCooldownProgress()
+        : 0;
     },
   };
 }

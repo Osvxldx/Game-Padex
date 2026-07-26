@@ -13,3 +13,8 @@ export const CANVAS_HEIGHT = 720;
 export const COMMENT_DURATION = 0.5; // seconds
 export const COMMENT_COOLDOWN = 2.0; // seconds
 export const COMMENT_OPACITY = 0.5; // 50% opacity
+
+// Death and respawn
+export const RESPAWN_DELAY = 0.25; // <= 500ms requirement
+export const RESPAWN_INVULNERABILITY = 1.0; // seconds
+export const TEST_LEVEL_KILL_PLANE_Y = CANVAS_HEIGHT + 500;
