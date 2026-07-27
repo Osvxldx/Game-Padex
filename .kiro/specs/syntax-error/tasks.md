@@ -157,8 +157,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Integrar checkpoints: activación visual, punto de reaparición
     - _Requisitos: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 20.1_
 
-- [ ] 10. Mecánica #1: Garbage Collector
-  - [ ] 10.1 Implementar mecánica Recolector de Basura para Nivel 1
+- [x] 10. Mecánica #1: Garbage Collector
+  - [x] 10.1 Implementar mecánica Recolector de Basura para Nivel 1
     - Crear `src/mechanics/garbageCollector.js`
     - Timer de inactividad de 5 segundos: si no hay input de movimiento, eliminar jugador
     - Reiniciar timer al presionar tecla de movimiento
@@ -174,7 +174,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - **Valida: Requisitos 5.1, 5.2**
 
 - [ ] 11. Mecánica #2: Merge Barrier
-  - [ ] 11.1 Implementar mecánica Barrera Merge para Nivel 2
+  - [x] 11.1 Implementar mecánica Barrera Merge para Nivel 2
     - Crear `src/mechanics/mergeBarrier.js`
     - Muros que bloquean físicamente hasta activar switch correcto
     - 2-4 switches por sección, exactamente 1 correcto
@@ -186,13 +186,13 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear `src/levels/level2.js`
     - _Requisitos: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8_
 
-  - [ ]* 11.2 Escribir property test: Idempotencia de inversión de controles
+  - [x]* 11.2 Escribir property test: Idempotencia de inversión de controles
     - **Property 6: Idempotencia de Inversión de Controles**
     - Verificar que múltiples activaciones incorrectas equivalen a una sola inversión
     - **Valida: Requisitos 6.3, 6.4**
 
-- [ ] 12. Mecánica #3: Bucle Infinito
-  - [ ] 12.1 Implementar mecánica Bucle Infinito para Nivel 3
+- [x] 12. Mecánica #3: Bucle Infinito
+  - [x] 12.1 Implementar mecánica Bucle Infinito para Nivel 3
     - Crear `src/mechanics/infiniteLoop.js`
     - Registrar últimos 2 segundos de movimiento del jugador
     - Al entrar en zona de bucle: atrapar jugador, repetir movimiento en ciclo

@@ -23,6 +23,10 @@ export const DEFAULT_TILE_CONFIG = Object.freeze({
     kind: TILE_KINDS.PLATFORM,
     tags: ["platform", "level-platform"],
   }),
+  "P": descriptor({
+    kind: TILE_KINDS.PLATFORM,
+    tags: ["platform", "level-platform", "moving-platform"],
+  }),
   "@": descriptor({ kind: TILE_KINDS.SPAWN, tags: ["player-spawn"] }),
   "C": descriptor({
     kind: TILE_KINDS.CHECKPOINT,
@@ -145,18 +149,65 @@ function colorForTile(tile, palette, activated = false) {
   return palette.mechanic;
 }
 
+function colorForTileState(tile, palette, state) {
+  if (state === "resolved") return palette.accent;
+  if (state === "conflict") return palette.danger;
+  return colorForTile(tile, palette);
+}
+
 function levelTileComponent(k, tile, initialPalette) {
   let palette = initialPalette;
+  const isMovingPlatform = tile.kind === TILE_KINDS.PLATFORM
+    && tile.tags?.includes("moving-platform");
+  const movingDistance = 72;
+  const movingSpeed = 70;
+  let movingElapsed = 0;
+  let mechanicVisualState = "idle";
+
   return {
     id: "levelTile",
     levelTileData: tile,
+    update() {
+      if (!isMovingPlatform) return;
+      movingElapsed += Math.max(0, Number(k.dt()) || 0);
+      const offset = Math.sin(
+        movingElapsed * (movingSpeed / movingDistance),
+      ) * movingDistance;
+      this.pos.x = tile.bounds.x + offset;
+      this.pos.y = tile.bounds.y;
+    },
+    getMovingPlatformState() {
+      if (!isMovingPlatform) return null;
+      return Object.freeze({
+        origin: Object.freeze({ x: tile.bounds.x, y: tile.bounds.y }),
+        distance: movingDistance,
+        speed: movingSpeed,
+        elapsed: movingElapsed,
+      });
+    },
+    mechanicVisualState,
     applyTilePalette(nextPalette) {
       palette = nextPalette ?? palette;
       if (tile.kind === TILE_KINDS.CHECKPOINT) {
         this.setCheckpointPalette?.(palette);
       } else {
-        this.color = rgb(k, colorForTile(tile, palette));
+        this.color = rgb(k, colorForTileState(tile, palette, mechanicVisualState));
       }
+    },
+    setMechanicVisualState(nextState) {
+      if (!new Set(["idle", "resolved", "conflict"]).has(nextState)) {
+        throw new RangeError(`Unsupported mechanic visual state: ${nextState}`);
+      }
+      mechanicVisualState = nextState;
+      this.mechanicVisualState = nextState;
+      this.color = rgb(k, colorForTileState(tile, palette, nextState));
+      if (tile.role === "switch") {
+        this.text = nextState === "resolved" ? "✓" : nextState === "conflict" ? "!" : "S";
+        this.opacity = nextState === "idle" ? 0.65 : 1;
+      } else if (tile.role === "barrier") {
+        this.opacity = nextState === "resolved" ? 0.18 : 0.85;
+      }
+      return mechanicVisualState;
     },
   };
 }

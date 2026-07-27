@@ -276,6 +276,9 @@ try {
       && loaded.player.y === loaded.spawn.position.y
       && loaded.entities.checkpoints >= 1
       && loaded.entities.lethal >= 1
+      && loaded.entities.movingPlatforms >= 1
+      && loaded.garbageCollector?.thresholdSeconds === 5
+      && loaded.garbageCollector.progress >= 0
       && loaded.mechanicZones.some((zone) => (
         zone.symbol === "G"
         && zone.mechanicType === "garbageCollector"
@@ -400,6 +403,76 @@ try {
     playRoute,
   );
 
+  // Level 2 Merge Barrier: incorrect inversion survives death, correct opens
+  // only its wall, and scene restart creates a clean mechanic session.
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.loadLevel(2)");
+  await delay(250);
+  const level2 = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    level2?.loaded
+      && level2.level.id === 2
+      && level2.mechanics["merge-main"].sections.length === 3
+      && level2.mechanics["merge-main"].sections.every((section) => (
+        section.switches.length >= 2 && section.switches.length <= 4
+      ))
+      && level2.mechanics["merge-main"].sections.every((section) => (
+        section.switches.filter((entry) => entry.correct).length === 1
+      )),
+    "Level 2 did not load its three declarative Merge sections",
+    level2,
+  );
+
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.touchMechanicSwitch('merge-1-a')");
+  await delay(120);
+  const inverted = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    inverted.player.controlsInverted
+      && inverted.mechanics["merge-main"].controlsInverted
+      && inverted.mechanics["merge-main"].sections[0].feedback === "conflict",
+    "Incorrect Merge switch did not apply persistent inverted controls",
+    inverted,
+  );
+
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.requestDeath('merge-smoke')");
+  await delay(350);
+  const mergeRespawn = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    mergeRespawn.death.state === "invulnerable"
+      && mergeRespawn.player.controlsInverted
+      && mergeRespawn.mechanics["merge-main"].controlsInverted,
+    "Merge inversion did not persist through death and respawn",
+    mergeRespawn,
+  );
+
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.touchMechanicSwitch('merge-1-b')");
+  await delay(120);
+  const resolvedMerge = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    resolvedMerge.mechanics["merge-main"].sections[0].wallOpen
+      && !resolvedMerge.mechanics["merge-main"].sections[1].wallOpen
+      && !resolvedMerge.mechanics["merge-main"].sections[2].wallOpen
+      && resolvedMerge.mechanics["merge-main"].sections[0].feedback === "resolved",
+    "Correct Merge switch did not open only its corresponding wall",
+    resolvedMerge,
+  );
+
+  const mergeSession = resolvedMerge.sessionId;
+  await evaluate(protocol, `(() => {
+    globalThis.__syntaxErrorGameSmoke.openPause();
+    return globalThis.__syntaxErrorGameSmoke.restartLevel();
+  })()`);
+  await delay(250);
+  const resetMerge = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    resetMerge.sessionId !== mergeSession
+      && resetMerge.level.id === 2
+      && !resetMerge.player.controlsInverted
+      && !resetMerge.mechanics["merge-main"].controlsInverted
+      && resetMerge.mechanics["merge-main"].sections.every((section) => !section.wallOpen),
+    "Level 2 restart did not reset Merge inversion and walls",
+    resetMerge,
+  );
+
   if (protocol.exceptions.length > 0 || protocol.consoleErrors.length > 0) {
     throw new Error([...protocol.exceptions, ...protocol.consoleErrors].join("\n"));
   }
@@ -408,7 +481,8 @@ try {
     `Runtime smoke passed: ${initial.canvasCount} canvas, ${initial.width}x${initial.height}; `
       + "Menu/Level Select -> dynamic Level 1, tile spawn, declarative GC zone, "
       + "checkpoint activation, lethal respawn, pause/settings, restart, menu return, "
-      + "Jugar route, and runtime cleanup verified; no JavaScript exceptions",
+      + "Jugar route, Level 2 Merge inversion/respawn/wall resolution/restart, "
+      + "and runtime cleanup verified; no JavaScript exceptions",
   );
 } finally {
   if (protocol?.socket?.readyState === WebSocket.OPEN) {
