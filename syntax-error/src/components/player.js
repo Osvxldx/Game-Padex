@@ -109,6 +109,17 @@ function isAnyKeyReleased(k, keys) {
   return keys.some((key) => k.isKeyReleased(key));
 }
 
+/** Read the raw keyboard state before any mechanic transforms it. */
+export function readRawPlayerInput(k) {
+  return Object.freeze({
+    leftDown: Boolean(k.isKeyDown("left") || k.isKeyDown("a")),
+    rightDown: Boolean(k.isKeyDown("right") || k.isKeyDown("d")),
+    jumpDown: isAnyKeyDown(k, JUMP_KEYS),
+    jumpPressed: isAnyKeyPressed(k, JUMP_KEYS),
+    jumpReleased: isAnyKeyReleased(k, JUMP_KEYS),
+  });
+}
+
 /**
  * Custom KAPLAY component for horizontal movement and assisted jumping.
  *
@@ -136,6 +147,7 @@ export function playerComponent(k, options = {}) {
     wasGrounded: false,
     manualControlEnabled: true,
     controlsInverted: false,
+    _inputGate: null,
 
     update() {
       const dt = Math.max(0, k.dt());
@@ -149,6 +161,12 @@ export function playerComponent(k, options = {}) {
         return;
       }
 
+      // Input pipeline is intentionally stable and explicit:
+      // raw keyboard -> optional warning delay gate -> Merge inversion -> movement.
+      const rawInput = readRawPlayerInput(k);
+      const input = this._inputGate?.advance
+        ? this._inputGate.advance(rawInput, dt)
+        : rawInput;
       const groundedAtFrameStart = this.isGrounded();
 
       // body() is the source of truth for grounded state. The first airborne
@@ -167,12 +185,8 @@ export function playerComponent(k, options = {}) {
       this.jumpBufferTimer = tickTimer(this.jumpBufferTimer, dt);
 
       let moveDirection = 0;
-      if (k.isKeyDown("left") || k.isKeyDown("a")) {
-        moveDirection -= 1;
-      }
-      if (k.isKeyDown("right") || k.isKeyDown("d")) {
-        moveDirection += 1;
-      }
+      if (input.leftDown) moveDirection -= 1;
+      if (input.rightDown) moveDirection += 1;
 
       if (this.controlsInverted) {
         moveDirection *= -1;
@@ -211,7 +225,7 @@ export function playerComponent(k, options = {}) {
 
       // Always queue the press first. It is consumed immediately on the floor
       // or during coyote time, otherwise it remains available for 100 ms.
-      if (isAnyKeyPressed(k, JUMP_KEYS)) {
+      if (input.jumpPressed) {
         this.jumpBufferTimer = JUMP_BUFFER_TIME;
       }
 
@@ -222,11 +236,9 @@ export function playerComponent(k, options = {}) {
         this.executeJump();
       }
 
-      // Releasing one jump binding must not cut the jump while another jump
-      // binding is still held.
       if (
-        isAnyKeyReleased(k, JUMP_KEYS)
-        && !isAnyKeyDown(k, JUMP_KEYS)
+        input.jumpReleased
+        && !input.jumpDown
         && this.controllerJumpActive
       ) {
         this.vel.y = cutUpwardVelocity(this.vel.y);
@@ -272,6 +284,23 @@ export function playerComponent(k, options = {}) {
 
     areControlsInverted() {
       return this.controlsInverted;
+    },
+
+    /** Install or remove a mechanic-owned raw-input transform. */
+    setInputGate(inputGate) {
+      if (inputGate !== null && typeof inputGate?.advance !== "function") {
+        throw new TypeError("inputGate must expose advance(rawInput, dt) or be null");
+      }
+      this._inputGate = inputGate;
+      return this._inputGate;
+    },
+
+    getInputPipelineState() {
+      return Object.freeze({
+        controlsInverted: this.controlsInverted,
+        gate: this._inputGate?.getState?.() ?? null,
+        order: Object.freeze(["raw-input", "warning-delay", "merge-inversion", "movement"]),
+      });
     },
 
     /** Respawn/restart hook owned by the movement controller. */
