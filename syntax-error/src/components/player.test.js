@@ -18,6 +18,7 @@ import {
   PLAYER_JUMP_FORCE,
   PLAYER_SPEED,
 } from "../constants.js";
+import { resetPlayerAfterRespawn } from "../systems/deathRespawn.js";
 
 function createControllerHarness() {
   const input = {
@@ -128,6 +129,23 @@ test("controller movement uses KAPLAY-style velocity integration", () => {
   assert.equal(harness.player.pos.x, 106);
 });
 
+test("external mechanics can lock manual movement without pausing the player", () => {
+  const harness = createControllerHarness();
+  harness.setDt(0.02);
+  harness.input.down.add("d");
+  harness.input.pressed.add("space");
+
+  assert.equal(harness.player.setManualControlEnabled(false), false);
+  harness.update();
+
+  assert.equal(harness.player.pos.x, 100);
+  assert.equal(harness.player.vel.y, 0);
+  assert.equal(harness.player.velocityX, 0);
+  assert.equal(harness.player.manualControlEnabled, false);
+  harness.player.resetPlayerMovement();
+  assert.equal(harness.player.manualControlEnabled, true);
+});
+
 test("coyote jump works after leaving ground and is consumed once", () => {
   const harness = createControllerHarness();
   harness.setDt(0.01);
@@ -220,4 +238,39 @@ test("controller level bounds use collider width instead of changing text width"
 
   assert.equal(harness.player.pos.x, 12);
   assert.equal(harness.player.velocityX, -PLAYER_SPEED);
+});
+
+
+test("explicit control inversion reverses horizontal input without affecting other controls", () => {
+  const harness = createControllerHarness();
+  assert.equal(harness.player.areControlsInverted(), false);
+  assert.equal(harness.player.setControlsInverted(true), true);
+
+  harness.input.down.add("d");
+  harness.update();
+  assert.equal(harness.player.velocityX, -PLAYER_SPEED);
+
+  harness.setGrounded(true);
+  harness.input.pressed.add("space");
+  harness.input.down.add("space");
+  harness.update();
+  assert.equal(harness.player.vel.y, -PLAYER_JUMP_FORCE);
+});
+
+test("death respawn resets movement but preserves control inversion", () => {
+  const harness = createControllerHarness();
+  harness.player.setControlsInverted(true);
+  harness.player.resetCommentAbility = () => {};
+
+  resetPlayerAfterRespawn({
+    player: harness.player,
+    checkpoint: { x: 48, y: 96 },
+  });
+
+  assert.equal(harness.player.areControlsInverted(), true);
+  assert.deepEqual(harness.player.pos, { x: 48, y: 96 });
+  assert.equal(harness.player.velocityX, 0);
+
+  const newSession = createControllerHarness();
+  assert.equal(newSession.player.areControlsInverted(), false);
 });

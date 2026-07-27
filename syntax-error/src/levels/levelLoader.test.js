@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { LEVEL_1 } from "./level1.js";
+import { LEVEL_3 } from "./level3.js";
+import { LEVEL_2 } from "./level2.js";
 import {
   LevelValidationError,
   parseLevelData,
@@ -48,6 +50,29 @@ test("Level 1 parses tile entities, spawn, checkpoint, and GC contract", () => {
       params: { inactivitySeconds: 5, section: "intro" },
     },
   );
+});
+
+test("Level 3 exposes three configured Infinite Loop zones", () => {
+  const parsed = parseLevelData(LEVEL_3);
+
+  assert.equal(parsed.id, 3);
+  assert.equal(parsed.name, "Stack Overflow");
+  assert.equal(parsed.musicTrack, "level-3");
+  assert.deepEqual(parsed.spawn.position, { x: 72, y: 648 });
+  assert.equal(parsed.checkpoints.length, 1);
+  assert.equal(parsed.mechanicZones.length, 3);
+  parsed.mechanicZones.forEach((zone) => {
+    assert.equal(zone.symbol, "L");
+    assert.equal(zone.role, "zone");
+    assert.equal(zone.mechanic.type, "infiniteLoop");
+    assert.deepEqual(zone.mechanic.params, {
+      historySeconds: 2,
+      cloneDelaySeconds: 0.1,
+      maxClones: 10,
+      overflowSeconds: 1.5,
+      section: "stack-overflow",
+    });
+  });
 });
 
 test("tile coordinates transform to world bounds and centers for rectangular tiles", () => {
@@ -161,5 +186,54 @@ test("ambiguous mechanic markers require an explicit mechanicId", () => {
       ],
     })),
     /matches multiple 'garbageCollector' mechanics/,
+  );
+});
+
+
+// Validates: Requirements 6.1, 6.6, 6.8
+test("Level 2 parser preserves per-instance Merge section, wall, and switch metadata", () => {
+  const parsed = parseLevelData(LEVEL_2);
+  const merge = parsed.data.mechanics.find(({ type }) => type === "mergeBarrier");
+  const barriers = parsed.mechanicZones.filter(({ role }) => role === "barrier");
+  const switches = parsed.mechanicZones.filter(({ role }) => role === "switch");
+
+  assert.equal(parsed.id, 2);
+  assert.equal(parsed.name, "Merge Conflict");
+  assert.equal(merge.params.sections.length, 3);
+  assert.equal(barriers.length, 15);
+  assert.ok(barriers.every(({ solid }) => solid));
+  assert.equal(switches.length, 9);
+  assert.deepEqual(
+    merge.params.sections.map((section) => ({
+      id: section.id,
+      switchCount: section.switches.length,
+      correctCount: section.switches.filter(({ correct }) => correct).length,
+    })),
+    [
+      { id: "conflict-1", switchCount: 3, correctCount: 1 },
+      { id: "conflict-2", switchCount: 2, correctCount: 1 },
+      { id: "conflict-3", switchCount: 4, correctCount: 1 },
+    ],
+  );
+  assert.deepEqual(
+    new Set(switches.map(({ mechanic }) => mechanic.params.sectionId)),
+    new Set(["conflict-1", "conflict-2", "conflict-3"]),
+  );
+});
+
+test("coordinate tile overrides are generic, merged, and validated", () => {
+  const parsed = parseLevelData(validLevel({
+    tilemap: ["@CS", "===",],
+    symbolConfig: { S: { mechanicId: "merge", params: { shared: true } } },
+    tileOverrides: { "0,2": { params: { switchId: "specific" }, tags: ["instance"] } },
+    mechanics: [{ id: "merge", type: "mergeBarrier" }],
+  }));
+  const zone = parsed.mechanicZones[0];
+
+  assert.deepEqual(zone.mechanic.params, { shared: true, switchId: "specific" });
+  assert.ok(zone.tags.includes("instance"));
+  assert.throws(
+    () => parseLevelData(validLevel({ tileOverrides: { "99,0": {} } })),
+    /outside the tilemap/,
   );
 });
