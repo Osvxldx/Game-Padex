@@ -196,11 +196,9 @@ function installRuntimeSmokeApi({
 export function registerTestLevelScene(k, {
   sceneName = TEST_LEVEL_SCENE,
   settingsContract,
-  audioManager,
   onMenu,
 } = {}) {
   k.scene(sceneName, () => {
-    audioManager?.crossfadeTo?.(1);
     const sessionId = nextSessionId;
     nextSessionId += 1;
 
@@ -236,9 +234,6 @@ export function registerTestLevelScene(k, {
       commentAbilityComponent(k),
       "player",
     ]);
-    player.on("player-jump", () => audioManager?.playSfx?.("jump"));
-    player.on("comment-start", () => audioManager?.playSfx?.("ability"));
-    player.on("player-death", () => audioManager?.playSfx?.("death"));
 
     const instruction = gameplayRoot.add([
       k.text(
@@ -252,9 +247,9 @@ export function registerTestLevelScene(k, {
     ]);
 
     const logicalObstacles = [
-      { tag: "gc-zone", label: "GC", x: 500, color: [248, 81, 73], sfx: "gcAlert" },
-      { tag: "loop-zone", label: "LOOP", x: 700, color: [188, 63, 188], sfx: "loopTrap" },
-      { tag: "warning-sign", label: "WARN", x: 850, color: [227, 179, 65], sfx: "warning" },
+      { tag: "gc-zone", label: "GC", x: 500, color: [248, 81, 73] },
+      { tag: "loop-zone", label: "LOOP", x: 700, color: [188, 63, 188] },
+      { tag: "warning-sign", label: "WARN", x: 850, color: [227, 179, 65] },
     ];
     for (const obstacle of logicalObstacles) {
       addLogicalObstacle(k, gameplayRoot, obstacle);
@@ -262,7 +257,6 @@ export function registerTestLevelScene(k, {
         if (player.shouldIgnoreLogicalObstacle(object)) {
           k.debug.log(`${obstacle.label} ignored (commented)`);
         } else {
-          audioManager?.playSfx?.(obstacle.sfx);
           k.debug.log(`${obstacle.label} effect applied`);
         }
       });

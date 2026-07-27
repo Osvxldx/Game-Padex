@@ -190,7 +190,6 @@ export function attachDeathRespawnSystem(k, {
     player.opacity = 0.2;
     player.paused = true;
     feedback.hidden = false;
-    player.trigger?.("player-death", source);
     return true;
   };
 
