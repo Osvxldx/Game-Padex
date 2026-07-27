@@ -191,8 +191,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Verificar que múltiples activaciones incorrectas equivalen a una sola inversión
     - **Valida: Requisitos 6.3, 6.4**
 
-- [ ] 12. Mecánica #3: Bucle Infinito
-  - [ ] 12.1 Implementar mecánica Bucle Infinito para Nivel 3
+- [x] 12. Mecánica #3: Bucle Infinito
+  - [x] 12.1 Implementar mecánica Bucle Infinito para Nivel 3
     - Crear `src/mechanics/infiniteLoop.js`
     - Registrar últimos 2 segundos de movimiento del jugador
     - Al entrar en zona de bucle: atrapar jugador, repetir movimiento en ciclo

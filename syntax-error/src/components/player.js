@@ -134,10 +134,21 @@ export function playerComponent(k, options = {}) {
     controllerJumpActive: false,
     jumpConsumed: true,
     wasGrounded: false,
+    manualControlEnabled: true,
     controlsInverted: false,
 
     update() {
       const dt = Math.max(0, k.dt());
+
+      // Level mechanics can take ownership of position while Comment Code and
+      // the rest of the player's components continue updating normally.
+      if (!this.manualControlEnabled) {
+        this.velocityX = 0;
+        this.jumpBufferTimer = 0;
+        this.controllerJumpActive = false;
+        return;
+      }
+
       const groundedAtFrameStart = this.isGrounded();
 
       // body() is the source of truth for grounded state. The first airborne
@@ -244,6 +255,15 @@ export function playerComponent(k, options = {}) {
       this.trigger?.("player-jump");
     },
 
+    /** Enable or disable only keyboard-driven movement and jumping. */
+    setManualControlEnabled(enabled) {
+      this.manualControlEnabled = Boolean(enabled);
+      if (!this.manualControlEnabled) {
+        resetPlayerMovementState(this);
+      }
+      return this.manualControlEnabled;
+    },
+
     /** Explicit control-effect API used by level mechanics. */
     setControlsInverted(inverted) {
       this.controlsInverted = Boolean(inverted);
@@ -257,6 +277,7 @@ export function playerComponent(k, options = {}) {
     /** Respawn/restart hook owned by the movement controller. */
     resetPlayerMovement() {
       resetPlayerMovementState(this);
+      this.manualControlEnabled = true;
     },
   };
 }

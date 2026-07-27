@@ -1,6 +1,7 @@
 import { commentAbilityComponent } from "../components/commentAbility.js";
 import { playerComponent } from "../components/player.js";
 import { LEVEL_1 } from "../levels/level1.js";
+import { LEVEL_3 } from "../levels/level3.js";
 import { LEVEL_2 } from "../levels/level2.js";
 import { attachLevelMechanics } from "../mechanics/mechanicRegistry.js";
 import {
@@ -12,6 +13,7 @@ import {
   TILE_KINDS,
   getTilePalette,
 } from "../levels/tileConfig.js";
+import { attachInfiniteLoopSystem } from "../mechanics/infiniteLoop.js";
 import { attachDeathRespawnSystem } from "../systems/deathRespawn.js";
 import {
   createCheckpointState,
@@ -20,7 +22,7 @@ import {
 import { createPauseRuntime } from "./pauseMenu.js";
 
 export const GAME_SCENE = "game";
-export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 2: LEVEL_2 });
+export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3 });
 
 const PLAYER_COLLIDER_WIDTH = 20;
 const PLAYER_COLLIDER_HEIGHT = 48;
@@ -396,6 +398,27 @@ export function registerGameScene(k, {
       instantiated,
       audioManager,
     });
+
+    const infiniteLoopDefinition = parsedLevel.data.mechanics.find(
+      (mechanic) => mechanic.type === "infiniteLoop" && mechanic.enabled,
+    );
+    const infiniteLoopZones = instantiated.mechanicZones.filter(
+      (object) => object?.levelTileData?.mechanic?.type === "infiniteLoop",
+    );
+    const loopParams = infiniteLoopDefinition?.params ?? {};
+    const infiniteLoopSystem = infiniteLoopDefinition
+      ? attachInfiniteLoopSystem(k, {
+        gameplayRoot,
+        player,
+        levelStart: parsedLevel.spawn.position,
+        zones: infiniteLoopZones,
+        audioManager,
+        historyDuration: loopParams.historySeconds,
+        cloneDelay: loopParams.cloneDelaySeconds,
+        maxClones: loopParams.maxClones,
+        overflowDuration: loopParams.overflowSeconds,
+      })
+      : null;
 
     const applyTheme = (themeId) => {
       currentTheme = getTilePalette(themeId) === getTilePalette("terminal")
