@@ -254,8 +254,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Asegurar contraste visual suficiente entre jugador, obstáculos y fondo en todos los temas
     - _Requisitos: 3.2, 3.6, 4.5, 5.3, 6.7, 10.2, 16.4, 16.5, 19.2, 19.3_
 
-- [ ] 17. Integración final, testing y deploy
-  - [ ] 17.1 Integración completa de todos los sistemas
+- [x] 17. Integración final, testing y deploy
+  - [x] 17.1 Integración completa de todos los sistemas
     - Conectar flujo completo: Menú → Selección → Juego → Pausa → Completación
     - Verificar transiciones de escena con crossfade de audio
     - Verificar persistencia end-to-end: completar nivel → reiniciar → verificar carga
@@ -263,18 +263,24 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Adaptar canvas a tamaño de ventana (1280x720 a 3840x2160)
     - _Requisitos: 13.1-13.8, 17.1, 17.2, 17.3, 18.1, 18.2, 18.3_
 
-  - [ ]* 17.2 Escribir tests de integración
+  - [x]* 17.2 Escribir tests de integración
     - Test de flujo completo de nivel: iniciar → checkpoint → morir → reaparecer
     - Test de persistencia end-to-end: completar nivel → LocalStorage → reiniciar → verificar
     - Test de audio + escenas: crossfade al cambiar nivel
     - Test de tema + juego: cambio mid-level sin afectar posición
+    - Los cuatro escenarios se ejecutan contra el bundle de producción en
+      `scripts/runtime-smoke.mjs` (`npm run smoke`), que conduce el juego real en
+      Chrome headless vía CDP en lugar de simular las escenas
     - _Requisitos: 12.3, 11.5, 10.5_
 
-  - [ ] 17.3 Configurar build de producción y deploy
+  - [x] 17.3 Configurar build de producción y deploy
     - Configurar `vite build` para producción optimizada
     - Verificar carga inicial < 3 segundos
     - Verificar uso de memoria < 200 MB
     - Generar bundle estático listo para deploy
+    - El presupuesto de carga y memoria se mide en el smoke sobre `dist/`; el
+      artefacto se empaqueta con `npm run package` (multiplataforma) y se publica
+      con el workflow `.github/workflows/deploy.yml`
     - _Requisitos: 17.1, 17.2, 17.3_
 
 - [ ] 18. Checkpoint final - Verificación completa

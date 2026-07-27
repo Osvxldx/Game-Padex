@@ -1,0 +1,79 @@
+name: Build, verify and deploy
+
+# The game lives in a subdirectory, so every job pins its working directory.
+# Verification runs on every push and pull request; publishing only happens on
+# the default branch so a red build can never reach the live site.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: syntax-error
+
+jobs:
+  verify:
+    name: Build, test and runtime smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: syntax-error/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit and property tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+      # The smoke test drives the built bundle in headless Chrome over CDP and
+      # asserts the load-time and memory budgets, so it must run after build.
+      - name: Runtime smoke test
+        run: npm run smoke
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - name: Package deployable archive
+        run: node scripts/package-dist.mjs
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntax-error-zip
+          path: syntax-error/release/syntax-error.zip
+          if-no-files-found: error
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: syntax-error/dist
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
