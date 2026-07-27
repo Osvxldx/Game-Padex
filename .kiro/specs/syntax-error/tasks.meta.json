@@ -2,7 +2,7 @@
   "pbtResults": {
     "4.5 Escribir property test: Reset de estado al reaparecer": {
       "status": "passed",
-      "lastRunTimestamp": 1785120344599
+      "lastRunTimestamp": 1785120768908
     }
   },
   "executionHistory": {
@@ -178,35 +178,23 @@
         "timestamp": 1784867176853
       }
     ],
-    "7. Sistema de audio (SFX + música)": [
+    "9.1 Implementar Level Loader con sistema de tilemaps": [
       {
-        "executionId": "fdefc191-bbcf-4f6c-9f26-4c89e3e205f0",
-        "chatSessionId": "sess_95517d59-e797-415b-b9b3-812be83b15ab",
-        "timestamp": 1785119147356
+        "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785120315362
       },
       {
-        "executionId": "fdefc191-bbcf-4f6c-9f26-4c89e3e205f0",
-        "chatSessionId": "sess_95517d59-e797-415b-b9b3-812be83b15ab",
-        "timestamp": 1785119572136
+        "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785120859843
       }
     ],
-    "7.1 Implementar AudioManager con SFX y música por nivel": [
+    "9. Level Loader y estructura de niveles (tilemaps)": [
       {
-        "executionId": "fdefc191-bbcf-4f6c-9f26-4c89e3e205f0",
-        "chatSessionId": "sess_95517d59-e797-415b-b9b3-812be83b15ab",
-        "timestamp": 1785119571323
-      }
-    ],
-    "8. Checkpoint - Verificar sistemas base": [
-      {
-        "executionId": "94301828-ced1-4038-beef-c1df86f393fd",
-        "chatSessionId": "sess_fdd0aef3-9609-4245-b452-b7f98283e842",
-        "timestamp": 1785120279072
-      },
-      {
-        "executionId": "94301828-ced1-4038-beef-c1df86f393fd",
-        "chatSessionId": "sess_fdd0aef3-9609-4245-b452-b7f98283e842",
-        "timestamp": 1785120375934
+        "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785120859984
       }
     ]
   }

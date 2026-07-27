@@ -1,5 +1,10 @@
 import kaplay from "kaplay";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, GRAVITY } from "./constants.js";
+import {
+  GAME_SCENE,
+  firstIncompleteLevelId,
+  registerGameScene,
+} from "./scenes/game.js";
 import { LEVEL_SELECT_SCENE, registerLevelSelectScene } from "./scenes/levelSelect.js";
 import { MENU_SCENE, registerMenuScene } from "./scenes/menu.js";
 import {
@@ -7,7 +12,7 @@ import {
   createSettingsContract,
   registerSettingsScene,
 } from "./scenes/settings.js";
-import { TEST_LEVEL_SCENE, registerTestLevelScene } from "./scenes/testLevel.js";
+import { registerTestLevelScene } from "./scenes/testLevel.js";
 import audioManager from "./systems/audioManager.js";
 import saveManager from "./systems/saveManager.js";
 import themeManager from "./systems/themeManager.js";
@@ -35,21 +40,22 @@ const goToMenu = (context) => {
   k.go(MENU_SCENE, context);
 };
 
-const goToLevelOne = () => {
-  audioManager.crossfadeTo(1);
-  k.go(TEST_LEVEL_SCENE);
-};
-
 registerTestLevelScene(k, {
   settingsContract,
   audioManager,
   onMenu: () => goToMenu(),
 });
 
+registerGameScene(k, {
+  settingsContract,
+  onMenu: () => goToMenu(),
+});
+
 registerLevelSelectScene(k, {
+  progressProvider: () => saveManager.getState(),
   onSelectLevel: (level) => {
-    if (level.id !== 1) return false;
-    goToLevelOne();
+    audioManager.crossfadeTo(level.id);
+    k.go(GAME_SCENE, { levelId: level.id });
     return true;
   },
   onBack: () => goToMenu(),
@@ -68,7 +74,11 @@ registerSettingsScene(k, {
 
 registerMenuScene(k, {
   routes: {
-    play: goToLevelOne,
+    play: () => {
+      const levelId = firstIncompleteLevelId(saveManager.getState());
+      audioManager.crossfadeTo(levelId);
+      k.go(GAME_SCENE, { levelId });
+    },
     levelSelect: () => k.go(LEVEL_SELECT_SCENE),
     settings: () => k.go(SETTINGS_SCENE, { origin: MENU_SCENE }),
   },

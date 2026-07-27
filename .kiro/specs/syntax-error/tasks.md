@@ -146,8 +146,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
 - [x] 8. Checkpoint - Verificar sistemas base
   - Asegurar que todos los tests pasan, preguntar al usuario si surgen dudas.
 
-- [ ] 9. Level Loader y estructura de niveles (tilemaps)
-  - [ ] 9.1 Implementar Level Loader con sistema de tilemaps
+- [x] 9. Level Loader y estructura de niveles (tilemaps)
+  - [x] 9.1 Implementar Level Loader con sistema de tilemaps
     - Crear `src/levels/levelLoader.js` con función para parsear tilemaps
     - Definir `src/levels/tileConfig.js` con mapeo de caracteres a componentes KAPLAY
     - Crear `src/levels/level1.js` con tilemap del Nivel 1 (Garbage Collector)
