@@ -1,7 +1,9 @@
 import { attachMergeBarrierRuntime } from "./mergeBarrier.js";
+import { attachWarningSystemRuntime } from "./warningSystem.js";
 
 export const DEFAULT_MECHANIC_FACTORIES = Object.freeze({
   mergeBarrier: attachMergeBarrierRuntime,
+  warningSystem: attachWarningSystemRuntime,
 });
 
 /**

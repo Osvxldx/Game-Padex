@@ -1,8 +1,10 @@
 import { commentAbilityComponent } from "../components/commentAbility.js";
 import { playerComponent } from "../components/player.js";
 import { LEVEL_1 } from "../levels/level1.js";
-import { LEVEL_3 } from "../levels/level3.js";
 import { LEVEL_2 } from "../levels/level2.js";
+import { LEVEL_3 } from "../levels/level3.js";
+import { LEVEL_4 } from "../levels/level4.js";
+import { LEVEL_5 } from "../levels/level5.js";
 import { attachLevelMechanics } from "../mechanics/mechanicRegistry.js";
 import {
   LevelValidationError,
@@ -14,6 +16,7 @@ import {
   getTilePalette,
 } from "../levels/tileConfig.js";
 import { attachInfiniteLoopSystem } from "../mechanics/infiniteLoop.js";
+import { attachGarbageCollectorSystem } from "../mechanics/garbageCollector.js";
 import { attachDeathRespawnSystem } from "../systems/deathRespawn.js";
 import {
   createCheckpointState,
@@ -22,7 +25,13 @@ import {
 import { createPauseRuntime } from "./pauseMenu.js";
 
 export const GAME_SCENE = "game";
-export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3 });
+export const LEVEL_REGISTRY = Object.freeze({
+  1: LEVEL_1,
+  2: LEVEL_2,
+  3: LEVEL_3,
+  4: LEVEL_4,
+  5: LEVEL_5,
+});
 
 const PLAYER_COLLIDER_WIDTH = 20;
 const PLAYER_COLLIDER_HEIGHT = 48;
@@ -142,6 +151,10 @@ function installGameSmokeApi({
   activateCheckpoint,
   deathSystem,
   mechanicRuntimes,
+  garbageCollectorSystem,
+  infiniteLoopSystem,
+  completeLevel,
+  getLevelCompleted,
   pauseRuntime,
   instantiated,
   settingsContract,
@@ -178,6 +191,7 @@ function installGameSmokeApi({
       isCommented: player.isCommented,
       cooldownRemaining: player.cooldownTimer,
       controlsInverted: player.areControlsInverted(),
+      inputPipeline: player.getInputPipelineState?.() ?? null,
     },
     x: player.pos.x,
     y: player.pos.y,
@@ -212,6 +226,9 @@ function installGameSmokeApi({
       [...mechanicRuntimes].map(([id, runtime]) => [id, runtime.getState?.() ?? null]),
     ),
     death: deathSystem.getState(),
+    garbageCollector: garbageCollectorSystem?.getState?.() ?? null,
+    infiniteLoop: infiniteLoopSystem?.getState?.() ?? null,
+    levelComplete: Boolean(getLevelCompleted?.()),
     pause: pauseRuntime.getState(),
     gameplayRootPaused: Boolean(gameplayRoot.paused),
     theme: getTheme(),
@@ -251,11 +268,29 @@ function installGameSmokeApi({
       player.pos.y = zone.position.y;
       return true;
     },
+    touchWarning(index = 0) {
+      const zones = parsedLevel.mechanicZones.filter((entry) => entry.role === "warning");
+      const zone = zones[index];
+      if (!zone) return false;
+      player.resetPlayerMovement();
+      player.pos.x = zone.position.x;
+      player.pos.y = zone.position.y;
+      return true;
+    },
     activateMechanicSwitch(mechanicId, switchId) {
       return mechanicRuntimes.get(mechanicId)?.activateSwitch?.(switchId) ?? false;
     },
     loadLevel(levelId) {
       k.go(GAME_SCENE, { levelId });
+      return true;
+    },
+    reachGoal: () => completeLevel?.() ?? false,
+    moveToGoal(index = 0) {
+      const object = instantiated.goals?.[index];
+      if (!object) return false;
+      player.resetPlayerMovement();
+      player.pos.x = object.levelTileData.position.x;
+      player.pos.y = object.levelTileData.position.y;
       return true;
     },
     crossKillPlane() {
@@ -293,6 +328,7 @@ export function registerGameScene(k, {
   settingsContract,
   audioManager,
   onMenu,
+  onLevelComplete,
 } = {}) {
   k.scene(sceneName, (request) => {
     const resolution = resolveLevelRequest(request, levelRegistry);
@@ -382,14 +418,6 @@ export function registerGameScene(k, {
     };
     player.onCollide("checkpoint", activateCheckpoint);
 
-    const warningResetContract = createWarningResetContract();
-    const deathSystem = attachDeathRespawnSystem(k, {
-      gameplayRoot,
-      player,
-      checkpointState,
-      warningResetContract,
-      killPlaneY: parsedLevel.worldBounds.bottom + parsedLevel.tileSize.height * 2,
-    });
     const mechanicRuntimes = attachLevelMechanics({
       k,
       gameplayRoot,
@@ -397,6 +425,23 @@ export function registerGameScene(k, {
       parsedLevel,
       instantiated,
       audioManager,
+    });
+    // Respawn consumes a narrow adapter discovered by capability, so future
+    // warning-enabled levels do not require level-specific scene branches.
+    const warningRuntime = [...mechanicRuntimes.values()].find((runtime) => (
+      typeof runtime?.getWarningCount === "function"
+      && typeof runtime?.resetWarnings === "function"
+    ));
+    const warningResetContract = createWarningResetContract({
+      getWarningCount: () => warningRuntime?.getWarningCount?.() ?? 0,
+      resetWarnings: () => warningRuntime?.resetWarnings?.(),
+    });
+    const deathSystem = attachDeathRespawnSystem(k, {
+      gameplayRoot,
+      player,
+      checkpointState,
+      warningResetContract,
+      killPlaneY: parsedLevel.worldBounds.bottom + parsedLevel.tileSize.height * 2,
     });
 
     const infiniteLoopDefinition = parsedLevel.data.mechanics.find(
@@ -420,6 +465,25 @@ export function registerGameScene(k, {
       })
       : null;
 
+    // Garbage Collector needs the death system, so it is wired here rather than
+    // through the generic registry. The timer is level-wide (Requirement 5).
+    const garbageCollectorDefinition = parsedLevel.data.mechanics.find(
+      (mechanic) => mechanic.type === "garbageCollector" && mechanic.enabled,
+    );
+    const garbageCollectorZones = instantiated.mechanicZones.filter(
+      (object) => object?.levelTileData?.mechanic?.type === "garbageCollector",
+    );
+    const garbageCollectorSystem = garbageCollectorDefinition
+      ? attachGarbageCollectorSystem(k, {
+        gameplayRoot,
+        player,
+        zones: garbageCollectorZones,
+        requestDeath: deathSystem.requestDeath,
+        audioManager,
+        inactivitySeconds: garbageCollectorDefinition.params?.inactivitySeconds,
+      })
+      : null;
+
     const applyTheme = (themeId) => {
       currentTheme = getTilePalette(themeId) === getTilePalette("terminal")
         && themeId !== "terminal"
@@ -428,6 +492,8 @@ export function registerGameScene(k, {
       palette = getTilePalette(currentTheme);
       k.setBackground(...palette.background);
       instantiated.objects.forEach((object) => object.applyTilePalette?.(palette));
+      mechanicRuntimes.forEach((runtime) => runtime.applyTheme?.(palette));
+      garbageCollectorSystem?.applyTheme?.(palette);
       player.setCommentBaseColor(k.rgb(...palette.player));
       title.color = k.rgb(...palette.ui);
       instructions.color = k.rgb(...palette.ui);
@@ -446,6 +512,76 @@ export function registerGameScene(k, {
       onThemeChange: applyTheme,
     });
 
+    // Reaching the goal tile completes the level: warnings and control
+    // inversion reset via "level-complete", progress is persisted, and a
+    // victory overlay is shown at scene root so it renders above the frozen
+    // gameplay world (Requirements 9.4, 9.5).
+    let levelCompleted = false;
+    let leavingAfterVictory = false;
+    const isFinalLevel = parsedLevel.id >= 5;
+    const completeLevel = () => {
+      if (levelCompleted) return false;
+      levelCompleted = true;
+      player.trigger?.("level-complete", parsedLevel.id);
+      gameplayRoot.paused = true;
+      if (pauseRuntime.controller) pauseRuntime.controller.paused = true;
+      try {
+        audioManager?.playSfx?.("ability");
+      } catch {
+        // Audio is optional and must never block completion.
+      }
+      onLevelComplete?.(parsedLevel.id);
+
+      const overlay = k.add([
+        k.pos(0, 0),
+        ...(typeof k.fixed === "function" ? [k.fixed()] : []),
+        k.z(2000),
+        "level-complete-overlay",
+      ]);
+      overlay.add([
+        k.rect(k.width(), k.height()),
+        k.pos(0, 0),
+        k.anchor("topleft"),
+        k.color(5, 8, 12),
+        k.opacity(0.9),
+      ]);
+      overlay.add([
+        k.text(isFinalLevel ? "JUEGO COMPLETADO" : "NIVEL COMPLETADO", { size: 56 }),
+        k.pos(k.width() / 2, k.height() / 2 - 70),
+        k.anchor("center"),
+        k.color(...palette.accent),
+      ]);
+      overlay.add([
+        k.text(
+          isFinalLevel
+            ? "// deploy exitoso: sobreviviste a producción"
+            : `Nivel ${parsedLevel.id} superado`,
+          { size: 22 },
+        ),
+        k.pos(k.width() / 2, k.height() / 2),
+        k.anchor("center"),
+        k.color(...palette.ui),
+      ]);
+      overlay.add([
+        k.text("Enter o Escape: volver al menú", { size: 18 }),
+        k.pos(k.width() / 2, k.height() / 2 + 70),
+        k.anchor("center"),
+        k.color(...palette.ui),
+      ]);
+
+      k.add([{
+        id: "level-complete-controller",
+        update() {
+          if (leavingAfterVictory) return;
+          if (!k.isKeyPressed("enter") && !k.isKeyPressed("escape")) return;
+          leavingAfterVictory = true;
+          onMenu?.();
+        },
+      }, "level-complete-controller"]);
+      return true;
+    };
+    player.onCollide("level-goal", completeLevel);
+
     const uninstallSmokeApi = installGameSmokeApi({
       k,
       sessionId,
@@ -458,6 +594,10 @@ export function registerGameScene(k, {
       activateCheckpoint,
       deathSystem,
       mechanicRuntimes,
+      garbageCollectorSystem,
+      infiniteLoopSystem,
+      completeLevel,
+      getLevelCompleted: () => levelCompleted,
       pauseRuntime,
       instantiated,
       settingsContract,

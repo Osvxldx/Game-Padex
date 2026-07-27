@@ -50,6 +50,12 @@ registerGameScene(k, {
   settingsContract,
   audioManager,
   onMenu: () => goToMenu(),
+  onLevelComplete: (levelId) => {
+    // SaveManager uses 0-based level indices and enforces sequential progression.
+    if (Number.isInteger(levelId) && levelId >= 1) {
+      saveManager.completeLevel(levelId - 1);
+    }
+  },
 });
 
 registerLevelSelectScene(k, {

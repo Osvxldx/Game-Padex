@@ -5,6 +5,7 @@ export const TILE_KINDS = Object.freeze({
   CHECKPOINT: "checkpoint",
   LETHAL: "lethal",
   MECHANIC: "mechanic",
+  GOAL: "goal",
 });
 
 const descriptor = (definition) => Object.freeze({
@@ -31,6 +32,10 @@ export const DEFAULT_TILE_CONFIG = Object.freeze({
   "X": descriptor({
     kind: TILE_KINDS.LETHAL,
     tags: ["lethal", "danger-visual"],
+  }),
+  "E": descriptor({
+    kind: TILE_KINDS.GOAL,
+    tags: ["level-goal", "accent-visual"],
   }),
   "G": descriptor({
     kind: TILE_KINDS.MECHANIC,
@@ -137,6 +142,7 @@ function rgb(k, value) {
 function colorForTile(tile, palette, activated = false) {
   if (tile.kind === TILE_KINDS.PLATFORM) return palette.platform;
   if (tile.kind === TILE_KINDS.LETHAL) return palette.danger;
+  if (tile.kind === TILE_KINDS.GOAL) return palette.accent;
   if (tile.kind === TILE_KINDS.CHECKPOINT) {
     return activated ? palette.accent : palette.checkpoint;
   }
@@ -277,6 +283,19 @@ export function createTileComponents(k, tile, {
       k.color(...palette.checkpoint),
       k.opacity(0.65),
       checkpointRuntimeComponent(k, palette),
+      metadata,
+      ...tags,
+    ];
+  }
+
+  if (tile.kind === TILE_KINDS.GOAL) {
+    return [
+      k.text("EXIT", { size: Math.max(18, tile.size.height * 0.42) }),
+      k.pos(tile.position.x, tile.position.y),
+      k.anchor("center"),
+      k.area(),
+      k.color(...palette.accent),
+      k.opacity(0.95),
       metadata,
       ...tags,
     ];

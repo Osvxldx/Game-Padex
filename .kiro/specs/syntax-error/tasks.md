@@ -205,8 +205,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear `src/levels/level3.js`
     - _Requisitos: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13. Mecánica #4: Warnings
-  - [ ] 13.1 Implementar mecánica Sistema de Warnings para Nivel 4
+- [x] 13. Mecánica #4: Warnings
+  - [x] 13.1 Implementar mecánica Sistema de Warnings para Nivel 4
     - Crear `src/mechanics/warningSystem.js`
     - Colisión con señal ⚠️ incrementa contador de warnings
     - Retardo de input: `t_delay = 50ms * (1 + 0.15 * N)` para N warnings
@@ -218,21 +218,21 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear `src/levels/level4.js`
     - _Requisitos: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
 
-  - [ ]* 13.2 Escribir property test: Fórmula monotónica de retardo
+  - [x]* 13.2 Escribir property test: Fórmula monotónica de retardo
     - **Property 3: Fórmula Monotónica de Retardo de Warnings**
     - Verificar que para todo N >= 0 y M > N, retardo(M) > retardo(N)
     - **Valida: Requisitos 8.2**
 
-  - [ ]* 13.3 Escribir property test: Límite máximo de warnings
+  - [x]* 13.3 Escribir property test: Límite máximo de warnings
     - **Property 8: Límite Máximo de Warnings**
     - Verificar que el contador nunca excede 20 y colisiones adicionales no incrementan
     - **Valida: Requisitos 8.6**
 
-- [ ] 14. Checkpoint - Verificar mecánicas de niveles
+- [x] 14. Checkpoint - Verificar mecánicas de niveles
   - Asegurar que todos los tests pasan, preguntar al usuario si surgen dudas.
 
-- [ ] 15. Nivel 5: Producción (todas combinadas)
-  - [ ] 15.1 Implementar Nivel 5 combinando todas las mecánicas
+- [x] 15. Nivel 5: Producción (todas combinadas)
+  - [x] 15.1 Implementar Nivel 5 combinando todas las mecánicas
     - Crear `src/levels/level5.js` con tilemap del nivel final
     - Incluir al menos 1 instancia activa de cada mecánica: GC, Merge, Loop, Warnings
     - Estructurar con al menos 4 secciones individuales + 1 sección combinada

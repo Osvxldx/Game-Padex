@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { LEVEL_1 } from "./level1.js";
-import { LEVEL_3 } from "./level3.js";
 import { LEVEL_2 } from "./level2.js";
+import { LEVEL_3 } from "./level3.js";
+import { LEVEL_4 } from "./level4.js";
+import { LEVEL_5 } from "./level5.js";
 import {
   LevelValidationError,
   parseLevelData,
@@ -230,4 +232,88 @@ test("coordinate tile overrides are generic, merged, and validated", () => {
     () => parseLevelData(validLevel({ tileOverrides: { "99,0": {} } })),
     /outside the tilemap/,
   );
+});
+
+// Validates: Requirements 8.1, 8.3, 8.6, 16.1
+ test("Level 4 parses unique warning signs, checkpoint, platforms, and warning config", () => {
+  const parsed = parseLevelData(LEVEL_4);
+  const warnings = parsed.mechanicZones.filter(({ role }) => role === "warning");
+  const warningIds = warnings.map(({ id }) => id);
+
+  assert.equal(parsed.id, 4);
+  assert.equal(parsed.name, "Warning Fatigue");
+  assert.equal(parsed.musicTrack, "level-4");
+  assert.deepEqual(parsed.spawn.position, { x: 72, y: 648 });
+  assert.equal(parsed.checkpoints.length, 1);
+  assert.ok(parsed.platforms.length > 26);
+  assert.ok(warnings.length > 20);
+  assert.equal(new Set(warningIds).size, warnings.length);
+  assert.ok(warnings.every(({ symbol, mechanic }) => (
+    symbol === "W"
+      && mechanic.id === "warnings-main"
+      && mechanic.type === "warningSystem"
+      && mechanic.params.baseDelayMs === 50
+      && mechanic.params.multiplier === 0.15
+      && mechanic.params.maxWarnings === 20
+  )));
+});
+
+
+// Validates: Requirements 9.1, 9.2, 16.1
+test("Level 5 combines every mechanic with individual and combined sections plus a goal", () => {
+  const parsed = parseLevelData(LEVEL_5);
+  const zonesByType = parsed.mechanicZones.reduce((counts, zone) => {
+    counts[zone.mechanic.type] = (counts[zone.mechanic.type] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  assert.equal(parsed.id, 5);
+  assert.equal(parsed.name, "Production");
+  assert.equal(parsed.musicTrack, "level-5");
+  assert.equal(parsed.checkpoints.length, 1);
+
+  // Requirement 9.1: at least one active instance of each mechanic.
+  assert.ok(zonesByType.garbageCollector >= 1, "needs a Garbage Collector zone");
+  assert.ok(zonesByType.mergeBarrier >= 1, "needs Merge Barrier tiles");
+  assert.ok(zonesByType.infiniteLoop >= 1, "needs an Infinite Loop zone");
+  assert.ok(zonesByType.warningSystem >= 1, "needs Warning signs");
+
+  // All four mechanic definitions are declared and enabled.
+  assert.deepEqual(
+    new Set(parsed.data.mechanics.map(({ type }) => type)),
+    new Set(["garbageCollector", "mergeBarrier", "infiniteLoop", "warningSystem"]),
+  );
+  assert.ok(parsed.data.mechanics.every(({ enabled }) => enabled));
+
+  // Requirement 9.2: at least one goal marks the end of the final section.
+  assert.equal(parsed.goals.length, 1);
+  assert.ok(parsed.goals[0].tags.includes("level-goal"));
+
+  // The Merge section keeps exactly one correct switch (Requirement 6.6).
+  const merge = parsed.data.mechanics.find(({ type }) => type === "mergeBarrier");
+  assert.equal(merge.params.sections.length, 1);
+  assert.equal(
+    merge.params.sections[0].switches.filter(({ correct }) => correct).length,
+    1,
+  );
+  const switches = parsed.mechanicZones.filter(({ role }) => role === "switch");
+  const barriers = parsed.mechanicZones.filter(({ role }) => role === "barrier");
+  assert.equal(switches.length, 3);
+  assert.ok(barriers.length >= 1 && barriers.every(({ solid }) => solid));
+});
+
+test("goal tiles parse as collectible end markers without extra mechanics", () => {
+  const parsed = parseLevelData({
+    id: 5,
+    name: "Goal marker",
+    tileSize: 32,
+    origin: { x: 0, y: 0 },
+    tilemap: ["@C.E", "===="],
+    mechanics: [],
+  });
+
+  assert.equal(parsed.goals.length, 1);
+  assert.equal(parsed.goals[0].kind, "goal");
+  assert.deepEqual(parsed.goals[0].tile, { column: 3, row: 0 });
+  assert.ok(parsed.goals[0].tags.includes("level-goal"));
 });

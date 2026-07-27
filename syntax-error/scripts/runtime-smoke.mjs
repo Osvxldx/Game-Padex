@@ -470,6 +470,114 @@ try {
     resetMerge,
   );
 
+  // Level 4 Warnings: collision, HUD, exact delay, Comment Code immunity,
+  // one-shot signs, and death reset through the gameplay contract.
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.loadLevel(4)");
+  await delay(250);
+  const level4 = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    level4?.loaded
+      && level4.level.id === 4
+      && level4.mechanicZones.filter((zone) => zone.mechanicType === "warningSystem").length > 20
+      && level4.mechanics["warnings-main"].warningCount === 0
+      && level4.mechanics["warnings-main"].delayMs === 50
+      && level4.mechanics["warnings-main"].hudText === "Warnings: 0"
+      && level4.player.inputPipeline.order.join(",") === "raw-input,warning-delay,merge-inversion,movement",
+    "Level 4 did not load its warning signs, HUD, and delayed-input pipeline",
+    level4,
+  );
+
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.touchWarning(0)");
+  await delay(120);
+  const warningCollected = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    warningCollected.mechanics["warnings-main"].warningCount === 1
+      && Math.abs(warningCollected.mechanics["warnings-main"].delayMs - 57.5) < 1e-9
+      && warningCollected.mechanics["warnings-main"].hudText === "Warnings: 1"
+      && warningCollected.mechanics["warnings-main"].collectedSignalIds.length === 1,
+    "Warning collision did not update count, HUD, and exact input delay",
+    warningCollected,
+  );
+
+  await evaluate(protocol, `(() => {
+    const api = globalThis.__syntaxErrorGameSmoke;
+    api.setPlayerState({ x: api.getState().spawn.position.x, y: api.getState().spawn.position.y });
+    return api.activateComment();
+  })()`);
+  await delay(40);
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.touchWarning(1)");
+  await delay(100);
+  const immuneWarning = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    immuneWarning.player.isCommented
+      && immuneWarning.mechanics["warnings-main"].warningCount === 1
+      && immuneWarning.mechanics["warnings-main"].collectedSignalIds.length === 1,
+    "Comment Code did not prevent warning collection",
+    immuneWarning,
+  );
+
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.requestDeath('warning-smoke')");
+  await delay(350);
+  const warningRespawn = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    warningRespawn.death.state === "invulnerable"
+      && warningRespawn.mechanics["warnings-main"].warningCount === 0
+      && warningRespawn.mechanics["warnings-main"].input.pendingCount === 0
+      && warningRespawn.mechanics["warnings-main"].hudText === "Warnings: 0"
+      && warningRespawn.mechanics["warnings-main"].collectedSignalIds.length === 1,
+    "Death did not reset warning count and delayed-input queue through the reset contract",
+    warningRespawn,
+  );
+
+  // Level 5 finale: all four mechanics load, the Garbage Collector runs
+  // level-wide, and reaching the goal completes the game and persists it.
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.loadLevel(5)");
+  await delay(250);
+  const level5 = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    level5?.loaded
+      && level5.level.id === 5
+      && level5.level.name === "Production"
+      && level5.mechanicZones.some((zone) => zone.mechanicType === "garbageCollector")
+      && level5.mechanicZones.some((zone) => zone.mechanicType === "mergeBarrier")
+      && level5.mechanicZones.some((zone) => zone.mechanicType === "infiniteLoop")
+      && level5.mechanicZones.some((zone) => zone.mechanicType === "warningSystem")
+      && level5.garbageCollector
+      && level5.garbageCollector.threshold === 5
+      && level5.levelComplete === false,
+    "Level 5 did not load all four mechanics with an active Garbage Collector",
+    level5,
+  );
+
+  const gcElapsedBefore = level5.garbageCollector.elapsed;
+  await delay(700);
+  const gcTicking = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  assertRuntime(
+    gcTicking.garbageCollector.elapsed > gcElapsedBefore
+      && !gcTicking.levelComplete,
+    "Garbage Collector timer did not accumulate during inactivity",
+    gcTicking,
+  );
+
+  await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.moveToGoal(0)");
+  await delay(150);
+  const finished = await evaluate(protocol, `(() => {
+    const state = globalThis.__syntaxErrorGameSmoke.getState();
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem("syntax-error-save")); } catch { saved = null; }
+    return { state, saved };
+  })()`);
+  assertRuntime(
+    finished.state.levelComplete
+      && finished.state.gameplayRootPaused
+      && finished.saved
+      && Array.isArray(finished.saved.levelsCompleted)
+      && finished.saved.levelsCompleted[4] === true
+      && finished.saved.levelsCompleted.every((done) => done === true),
+    "Reaching the Level 5 goal did not complete and persist the game",
+    finished,
+  );
+
   if (protocol.exceptions.length > 0 || protocol.consoleErrors.length > 0) {
     throw new Error([...protocol.exceptions, ...protocol.consoleErrors].join("\n"));
   }
@@ -479,7 +587,9 @@ try {
       + "Menu/Level Select -> dynamic Level 1, tile spawn, declarative GC zone, "
       + "checkpoint activation, lethal respawn, pause/settings, restart, menu return, "
       + "Jugar route, Level 2 Merge inversion/respawn/wall resolution/restart, "
-      + "and runtime cleanup verified; no JavaScript exceptions",
+      + "Level 4 warning collision/HUD/delay/immunity/death reset, "
+      + "Level 5 all-mechanics load, active Garbage Collector timer, goal completion "
+      + "and persisted progression, and runtime cleanup verified; no JavaScript exceptions",
   );
 } finally {
   if (protocol?.socket?.readyState === WebSocket.OPEN) {
