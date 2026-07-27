@@ -131,8 +131,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Verificar que todo volumen queda en [0.0, 1.0] redondeado a incrementos de 0.1
     - **Valida: Requisitos 11.3**
 
-- [ ] 7. Sistema de audio (SFX + música)
-  - [ ] 7.1 Implementar AudioManager con SFX y música por nivel
+- [x] 7. Sistema de audio (SFX + música)
+  - [x] 7.1 Implementar AudioManager con SFX y música por nivel
     - Crear `src/systems/audioManager.js`
     - Implementar SFX para: salto, muerte, habilidad, alerta GC, switch, trampa bucle, warning
     - Implementar música loop por nivel (6 tracks: menú + 5 niveles)
@@ -143,7 +143,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear placeholders de audio (tonos generados) para desarrollo
     - _Requisitos: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-- [ ] 8. Checkpoint - Verificar sistemas base
+- [x] 8. Checkpoint - Verificar sistemas base
   - Asegurar que todos los tests pasan, preguntar al usuario si surgen dudas.
 
 - [ ] 9. Level Loader y estructura de niveles (tilemaps)
