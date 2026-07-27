@@ -2,7 +2,7 @@
   "pbtResults": {
     "4.5 Escribir property test: Reset de estado al reaparecer": {
       "status": "passed",
-      "lastRunTimestamp": 1785037669894
+      "lastRunTimestamp": 1785120768908
     }
   },
   "executionHistory": {
@@ -176,6 +176,25 @@
         "executionId": "80f05a06-af34-4ec6-8747-fa7b672c7c8e",
         "chatSessionId": "sess_15c8a579-93b4-453e-8532-8c488f384b09",
         "timestamp": 1784867176853
+      }
+    ],
+    "9.1 Implementar Level Loader con sistema de tilemaps": [
+      {
+        "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785120315362
+      },
+      {
+        "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785120859843
+      }
+    ],
+    "9. Level Loader y estructura de niveles (tilemaps)": [
+      {
+        "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785120859984
       }
     ]
   }

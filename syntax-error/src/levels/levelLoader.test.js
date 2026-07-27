@@ -1,0 +1,159 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { LEVEL_1 } from "./level1.js";
+import {
+  LevelValidationError,
+  parseLevelData,
+  tileToWorld,
+} from "./levelLoader.js";
+
+// Validates: Requirements 16.1, 16.2, 16.4, 16.5, 20.1
+
+test("Level 1 parses tile entities, spawn, checkpoint, and GC contract", () => {
+  const parsed = parseLevelData(LEVEL_1);
+
+  assert.equal(parsed.id, 1);
+  assert.equal(parsed.name, "Garbage Collector");
+  assert.equal(parsed.mapWidth, 26);
+  assert.equal(parsed.mapHeight, 15);
+  assert.equal(parsed.worldWidth, 1248);
+  assert.equal(parsed.worldHeight, 720);
+  assert.deepEqual(parsed.spawn.tile, { column: 1, row: 13 });
+  assert.deepEqual(parsed.spawn.position, { x: 72, y: 648 });
+  assert.equal(parsed.checkpoints.length, 1);
+  assert.deepEqual(parsed.checkpoints[0].position, { x: 408, y: 648 });
+  assert.equal(parsed.platforms.length, 48);
+  assert.equal(parsed.lethalObstacles.length, 1);
+  assert.equal(parsed.mechanicZones.length, 1);
+  assert.deepEqual(
+    {
+      symbol: parsed.mechanicZones[0].symbol,
+      role: parsed.mechanicZones[0].role,
+      type: parsed.mechanicZones[0].mechanic.type,
+      id: parsed.mechanicZones[0].mechanic.id,
+      params: parsed.mechanicZones[0].mechanic.params,
+    },
+    {
+      symbol: "G",
+      role: "zone",
+      type: "garbageCollector",
+      id: "gc-main",
+      params: { inactivitySeconds: 5, section: "intro" },
+    },
+  );
+});
+
+test("tile coordinates transform to world bounds and centers for rectangular tiles", () => {
+  const world = tileToWorld(
+    3,
+    2,
+    { width: 32, height: 48 },
+    { x: 10, y: -8 },
+  );
+
+  assert.deepEqual(world.tile, { column: 3, row: 2 });
+  assert.deepEqual(world.bounds, { x: 106, y: 88, width: 32, height: 48 });
+  assert.deepEqual(world.position, { x: 122, y: 112 });
+  assert.throws(() => tileToWorld(-1, 0, 32), RangeError);
+  assert.throws(() => tileToWorld(0, 1.5, 32), RangeError);
+});
+
+test("reserved mechanics parse as extensible declarative markers", () => {
+  const parsed = parseLevelData({
+    id: 5,
+    name: "Mechanic contracts",
+    tileSize: 20,
+    origin: { x: 5, y: 10 },
+    tilemap: [
+      "@CMSLW",
+      "======",
+    ],
+    symbolConfig: {
+      M: { mechanicId: "merge" },
+      S: { mechanicId: "merge" },
+    },
+    mechanics: [
+      { id: "merge", type: "mergeBarrier", params: { section: 1 } },
+      { id: "loop", type: "infiniteLoop" },
+      { id: "warnings", type: "warningSystem" },
+    ],
+  });
+
+  assert.deepEqual(
+    parsed.mechanicZones.map(({ symbol, role, mechanic, solid }) => ({
+      symbol,
+      role,
+      type: mechanic.type,
+      solid,
+    })),
+    [
+      { symbol: "M", role: "barrier", type: "mergeBarrier", solid: true },
+      { symbol: "S", role: "switch", type: "mergeBarrier", solid: false },
+      { symbol: "L", role: "zone", type: "infiniteLoop", solid: false },
+      { symbol: "W", role: "warning", type: "warningSystem", solid: false },
+    ],
+  );
+});
+
+function validLevel(overrides = {}) {
+  return {
+    id: 1,
+    name: "Valid",
+    tileSize: 32,
+    origin: { x: 0, y: 0 },
+    tilemap: ["@C", "=="],
+    mechanics: [],
+    ...overrides,
+  };
+}
+
+const invalidCases = [
+  ["missing object", null, /level: must be an object/],
+  ["invalid id", validLevel({ id: 0 }), /level\.id: must be a positive integer/],
+  ["empty name", validLevel({ name: " " }), /level\.name: must be a non-empty string/],
+  ["missing tile size", validLevel({ tileSize: undefined }), /level\.tileSize: must be an object/],
+  ["invalid origin", validLevel({ origin: { x: NaN, y: 0 } }), /level\.origin: must contain finite/],
+  ["irregular rows", validLevel({ tilemap: ["@C", "="] }), /row has width 1; expected 2/],
+  ["unknown symbol", validLevel({ tilemap: ["@?C"] }), /unknown symbol/],
+  ["missing spawn", validLevel({ tilemap: [".C", "=="] }), /exactly one '@'/],
+  ["duplicate spawn", validLevel({ tilemap: ["@@C", "==="] }), /spawn is duplicated/],
+  ["missing checkpoint", validLevel({ tilemap: ["@.", "=="] }), /at least one 'C'/],
+  [
+    "mechanic without config",
+    validLevel({ tilemap: ["@CG", "==="] }),
+    /requires a 'garbageCollector' mechanic configuration/,
+  ],
+  [
+    "duplicate mechanic ids",
+    validLevel({
+      mechanics: [
+        { id: "same", type: "garbageCollector" },
+        { id: "same", type: "infiniteLoop" },
+      ],
+    }),
+    /duplicate mechanic id 'same'/,
+  ],
+];
+
+for (const [name, level, expected] of invalidCases) {
+  test(`rejects ${name} with a clear validation error`, () => {
+    assert.throws(
+      () => parseLevelData(level),
+      (error) => error instanceof LevelValidationError && expected.test(error.message),
+    );
+  });
+}
+
+test("ambiguous mechanic markers require an explicit mechanicId", () => {
+  assert.throws(
+    () => parseLevelData(validLevel({
+      tilemap: ["@CG", "==="],
+      mechanics: [
+        { id: "gc-a", type: "garbageCollector" },
+        { id: "gc-b", type: "garbageCollector" },
+      ],
+    })),
+    /matches multiple 'garbageCollector' mechanics/,
+  );
+});
