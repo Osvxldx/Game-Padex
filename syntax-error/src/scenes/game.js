@@ -2,6 +2,8 @@ import { commentAbilityComponent } from "../components/commentAbility.js";
 import { playerComponent } from "../components/player.js";
 import { LEVEL_1 } from "../levels/level1.js";
 import { LEVEL_3 } from "../levels/level3.js";
+import { LEVEL_2 } from "../levels/level2.js";
+import { attachLevelMechanics } from "../mechanics/mechanicRegistry.js";
 import {
   LevelValidationError,
   instantiateParsedLevel,
@@ -20,7 +22,7 @@ import {
 import { createPauseRuntime } from "./pauseMenu.js";
 
 export const GAME_SCENE = "game";
-export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 3: LEVEL_3 });
+export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3 });
 
 const PLAYER_COLLIDER_WIDTH = 20;
 const PLAYER_COLLIDER_HEIGHT = 48;
@@ -139,6 +141,7 @@ function installGameSmokeApi({
   getActiveCheckpointId,
   activateCheckpoint,
   deathSystem,
+  mechanicRuntimes,
   pauseRuntime,
   instantiated,
   settingsContract,
@@ -174,6 +177,7 @@ function installGameSmokeApi({
       velY: player.vel.y,
       isCommented: player.isCommented,
       cooldownRemaining: player.cooldownTimer,
+      controlsInverted: player.areControlsInverted(),
     },
     x: player.pos.x,
     y: player.pos.y,
@@ -204,6 +208,9 @@ function installGameSmokeApi({
       position: { ...zone.position },
       params: { ...zone.mechanic.params },
     })),
+    mechanics: Object.fromEntries(
+      [...mechanicRuntimes].map(([id, runtime]) => [id, runtime.getState?.() ?? null]),
+    ),
     death: deathSystem.getState(),
     pause: pauseRuntime.getState(),
     gameplayRootPaused: Boolean(gameplayRoot.paused),
@@ -232,6 +239,23 @@ function installGameSmokeApi({
       player.resetPlayerMovement();
       player.pos.x = object.levelTileData.position.x;
       player.pos.y = object.levelTileData.position.y;
+      return true;
+    },
+    touchMechanicSwitch(switchId) {
+      const zone = parsedLevel.mechanicZones.find((entry) => (
+        entry.role === "switch" && entry.mechanic.params.switchId === switchId
+      ));
+      if (!zone) return false;
+      player.resetPlayerMovement();
+      player.pos.x = zone.position.x;
+      player.pos.y = zone.position.y;
+      return true;
+    },
+    activateMechanicSwitch(mechanicId, switchId) {
+      return mechanicRuntimes.get(mechanicId)?.activateSwitch?.(switchId) ?? false;
+    },
+    loadLevel(levelId) {
+      k.go(GAME_SCENE, { levelId });
       return true;
     },
     crossKillPlane() {
@@ -366,6 +390,14 @@ export function registerGameScene(k, {
       warningResetContract,
       killPlaneY: parsedLevel.worldBounds.bottom + parsedLevel.tileSize.height * 2,
     });
+    const mechanicRuntimes = attachLevelMechanics({
+      k,
+      gameplayRoot,
+      player,
+      parsedLevel,
+      instantiated,
+      audioManager,
+    });
 
     const infiniteLoopDefinition = parsedLevel.data.mechanics.find(
       (mechanic) => mechanic.type === "infiniteLoop" && mechanic.enabled,
@@ -425,6 +457,7 @@ export function registerGameScene(k, {
       getActiveCheckpointId: () => activeCheckpointId,
       activateCheckpoint,
       deathSystem,
+      mechanicRuntimes,
       pauseRuntime,
       instantiated,
       settingsContract,

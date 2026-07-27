@@ -145,18 +145,41 @@ function colorForTile(tile, palette, activated = false) {
   return palette.mechanic;
 }
 
+function colorForTileState(tile, palette, state) {
+  if (state === "resolved") return palette.accent;
+  if (state === "conflict") return palette.danger;
+  return colorForTile(tile, palette);
+}
+
 function levelTileComponent(k, tile, initialPalette) {
   let palette = initialPalette;
+  let mechanicVisualState = "idle";
   return {
     id: "levelTile",
     levelTileData: tile,
+    mechanicVisualState,
     applyTilePalette(nextPalette) {
       palette = nextPalette ?? palette;
       if (tile.kind === TILE_KINDS.CHECKPOINT) {
         this.setCheckpointPalette?.(palette);
       } else {
-        this.color = rgb(k, colorForTile(tile, palette));
+        this.color = rgb(k, colorForTileState(tile, palette, mechanicVisualState));
       }
+    },
+    setMechanicVisualState(nextState) {
+      if (!new Set(["idle", "resolved", "conflict"]).has(nextState)) {
+        throw new RangeError(`Unsupported mechanic visual state: ${nextState}`);
+      }
+      mechanicVisualState = nextState;
+      this.mechanicVisualState = nextState;
+      this.color = rgb(k, colorForTileState(tile, palette, nextState));
+      if (tile.role === "switch") {
+        this.text = nextState === "resolved" ? "✓" : nextState === "conflict" ? "!" : "S";
+        this.opacity = nextState === "idle" ? 0.65 : 1;
+      } else if (tile.role === "barrier") {
+        this.opacity = nextState === "resolved" ? 0.18 : 0.85;
+      }
+      return mechanicVisualState;
     },
   };
 }
