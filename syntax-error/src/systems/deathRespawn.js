@@ -175,6 +175,7 @@ export function attachDeathRespawnSystem(k, {
     });
     feedback.hidden = true;
     restoreAliveVisual();
+    player.trigger?.("player-respawn");
   };
 
   const requestDeath = (source = "unknown") => {

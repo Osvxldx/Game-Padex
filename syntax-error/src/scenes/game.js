@@ -1,6 +1,7 @@
 import { commentAbilityComponent } from "../components/commentAbility.js";
 import { playerComponent } from "../components/player.js";
 import { LEVEL_1 } from "../levels/level1.js";
+import { attachGarbageCollector } from "../mechanics/garbageCollector.js";
 import { LEVEL_3 } from "../levels/level3.js";
 import { LEVEL_2 } from "../levels/level2.js";
 import { attachLevelMechanics } from "../mechanics/mechanicRegistry.js";
@@ -141,6 +142,7 @@ function installGameSmokeApi({
   getActiveCheckpointId,
   activateCheckpoint,
   deathSystem,
+  garbageCollector,
   mechanicRuntimes,
   pauseRuntime,
   instantiated,
@@ -195,6 +197,9 @@ function installGameSmokeApi({
     entities: {
       total: instantiated.objects.length,
       platforms: instantiated.platforms.length,
+      movingPlatforms: instantiated.platforms.filter((object) => (
+        object.levelTileData.tags.includes("moving-platform")
+      )).length,
       lethal: instantiated.lethalObstacles.length,
       checkpoints: instantiated.checkpoints.length,
     },
@@ -212,6 +217,7 @@ function installGameSmokeApi({
       [...mechanicRuntimes].map(([id, runtime]) => [id, runtime.getState?.() ?? null]),
     ),
     death: deathSystem.getState(),
+    garbageCollector: garbageCollector?.getState() ?? null,
     pause: pauseRuntime.getState(),
     gameplayRootPaused: Boolean(gameplayRoot.paused),
     theme: getTheme(),
@@ -390,6 +396,19 @@ export function registerGameScene(k, {
       warningResetContract,
       killPlaneY: parsedLevel.worldBounds.bottom + parsedLevel.tileSize.height * 2,
     });
+    const garbageCollectorConfig = parsedLevel.data.mechanics.find(
+      (mechanic) => mechanic.enabled && mechanic.type === "garbageCollector",
+    );
+    const garbageCollector = garbageCollectorConfig
+      ? attachGarbageCollector(k, {
+        gameplayRoot,
+        player,
+        deathSystem,
+        config: garbageCollectorConfig.params,
+        palette,
+      })
+      : null;
+
     const mechanicRuntimes = attachLevelMechanics({
       k,
       gameplayRoot,
@@ -428,6 +447,7 @@ export function registerGameScene(k, {
       palette = getTilePalette(currentTheme);
       k.setBackground(...palette.background);
       instantiated.objects.forEach((object) => object.applyTilePalette?.(palette));
+      garbageCollector?.applyPalette(palette);
       player.setCommentBaseColor(k.rgb(...palette.player));
       title.color = k.rgb(...palette.ui);
       instructions.color = k.rgb(...palette.ui);
@@ -457,6 +477,7 @@ export function registerGameScene(k, {
       getActiveCheckpointId: () => activeCheckpointId,
       activateCheckpoint,
       deathSystem,
+      garbageCollector,
       mechanicRuntimes,
       pauseRuntime,
       instantiated,
