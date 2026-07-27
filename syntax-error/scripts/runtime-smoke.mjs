@@ -23,10 +23,18 @@ const delay = (milliseconds) => new Promise(
 );
 
 function assertRuntime(condition, message, state) {
-  if (!condition) {
-    const details = state === undefined ? "" : `: ${JSON.stringify(state)}`;
-    throw new Error(`${message}${details}`);
-  }
+  if (condition) return;
+  const details = state === undefined ? "" : `: ${JSON.stringify(state)}`;
+  // A failed assertion is usually the symptom of a browser-side exception that
+  // is otherwise only reported at the end of the run, so surface it here.
+  const browserErrors = [
+    ...(protocol?.exceptions ?? []),
+    ...(protocol?.consoleErrors ?? []),
+  ];
+  const diagnostics = browserErrors.length === 0
+    ? ""
+    : `\nBrowser errors:\n${browserErrors.join("\n")}`;
+  throw new Error(`${message}${details}${diagnostics}`);
 }
 
 function findBrowser() {
@@ -180,6 +188,57 @@ async function pressKey(protocol, key, code, keyCode) {
   await delay(100);
 }
 
+/**
+ * Resolve once the browser process has really exited. Windows only releases the
+ * locks on the `--user-data-dir` files after the process is gone, so deleting
+ * the profile before this point fails with EPERM.
+ */
+async function waitForBrowserExit(child, timeoutMs = 5000) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  await new Promise((resolveExit) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.off("exit", finish);
+      resolveExit();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    timer.unref?.();
+    child.once("exit", finish);
+  });
+}
+
+/**
+ * Delete a directory without ever throwing. Cleanup runs inside `finally`, so a
+ * failure here would replace the real assertion error (or turn a passing run
+ * into a failure). Windows can still report EPERM/EBUSY right after exit, so
+ * retry a few times and downgrade a persistent failure to a warning.
+ */
+async function removeDirectoryBestEffort(directory, attempts = 6, waitMs = 250) {
+  if (!directory) return true;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      rmSync(directory, { recursive: true, force: true });
+      return true;
+    } catch (error) {
+      const retryable = error?.code === "EPERM"
+        || error?.code === "EBUSY"
+        || error?.code === "ENOTEMPTY";
+      if (!retryable || attempt === attempts) {
+        console.warn(
+          `Warning: could not remove temporary profile ${directory} `
+            + `(${error?.code ?? error?.message}); leaving it for the OS to reclaim.`,
+        );
+        return false;
+      }
+      await delay(waitMs);
+    }
+  }
+  return false;
+}
+
 let browser;
 let protocol;
 let server;
@@ -243,6 +302,22 @@ try {
     initial,
   );
 
+  // Boot requests the menu loop. Headless Chrome blocks autoplay, so the
+  // desired track is the observable contract; the active voice may stay null.
+  const menuAudio = await evaluate(
+    protocol,
+    "globalThis.__syntaxErrorAppSmoke.getAudioState()",
+  );
+  assertRuntime(
+    menuAudio?.desiredMusic === "menu"
+      && menuAudio.crossfadeSeconds === 1
+      && menuAudio.failedResources.length === 0
+      && menuAudio.musicVolume >= 0 && menuAudio.musicVolume <= 1
+      && menuAudio.sfxVolume >= 0 && menuAudio.sfxVolume <= 1,
+    "Boot did not request the menu music loop with a 1s crossfade",
+    menuAudio,
+  );
+
   // Menu -> Level Select -> Level 1 -> dynamic game.
   await pressKey(protocol, "ArrowDown", "ArrowDown", 40);
   await pressKey(protocol, "Enter", "Enter", 13);
@@ -287,6 +362,52 @@ try {
     "Level 1 did not load dynamically from its tilemap",
     loaded,
   );
+
+  // Entering a level crossfades the menu loop to that level's track.
+  const levelAudio = await evaluate(
+    protocol,
+    "globalThis.__syntaxErrorAppSmoke.getAudioState()",
+  );
+  assertRuntime(
+    levelAudio?.desiredMusic === "level1"
+      && levelAudio.failedResources.length === 0,
+    "Entering Level 1 did not crossfade the menu loop to the level track",
+    levelAudio,
+  );
+
+  // Mid-level theme change must repaint in place: same session, untouched
+  // player state, no respawn and no loss of checkpoint or warning progress.
+  const beforeTheme = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
+  const themed = await evaluate(protocol, `(() => {
+    globalThis.__syntaxErrorGameSmoke.setPlayerState({ x: 300, y: 400, velX: 42, velY: -17 });
+    const applied = globalThis.__syntaxErrorGameSmoke.changeTheme("blueprint");
+    return { applied, state: globalThis.__syntaxErrorGameSmoke.getState() };
+  })()`);
+  assertRuntime(
+    themed.applied === "blueprint"
+      && themed.state.theme === "blueprint"
+      && themed.state.settings.theme === "blueprint"
+      && themed.state.sessionId === beforeTheme.sessionId
+      && themed.state.player.x === 300
+      && themed.state.player.y === 400
+      && themed.state.player.velX === 42
+      && themed.state.player.velY === -17
+      && themed.state.death.state === beforeTheme.death.state
+      && themed.state.checkpoint.activeId === beforeTheme.checkpoint.activeId
+      && themed.state.player.warningCount === beforeTheme.player.warningCount
+      && themed.state.level.id === beforeTheme.level.id,
+    "Mid-level theme change rebuilt gameplay or altered player state",
+    themed,
+  );
+  // Restore the default theme and put the player back at spawn so the
+  // following assertions start from the same state as before this block.
+  await evaluate(protocol, `(() => {
+    const api = globalThis.__syntaxErrorGameSmoke;
+    api.changeTheme("terminal");
+    const spawn = api.getState().spawn.position;
+    api.setPlayerState({ x: spawn.x, y: spawn.y });
+    return true;
+  })()`);
 
   // Real checkpoint collision updates state and persistent visual selection.
   const checkpointTouched = await evaluate(
@@ -546,17 +667,17 @@ try {
       && level5.mechanicZones.some((zone) => zone.mechanicType === "infiniteLoop")
       && level5.mechanicZones.some((zone) => zone.mechanicType === "warningSystem")
       && level5.garbageCollector
-      && level5.garbageCollector.threshold === 5
+      && level5.garbageCollector.thresholdSeconds === 5
       && level5.levelComplete === false,
     "Level 5 did not load all four mechanics with an active Garbage Collector",
     level5,
   );
 
-  const gcElapsedBefore = level5.garbageCollector.elapsed;
+  const gcElapsedBefore = level5.garbageCollector.elapsedSeconds;
   await delay(700);
   const gcTicking = await evaluate(protocol, "globalThis.__syntaxErrorGameSmoke.getState()");
   assertRuntime(
-    gcTicking.garbageCollector.elapsed > gcElapsedBefore
+    gcTicking.garbageCollector.elapsedSeconds > gcElapsedBefore
       && !gcTicking.levelComplete,
     "Garbage Collector timer did not accumulate during inactivity",
     gcTicking,
@@ -581,6 +702,68 @@ try {
     finished,
   );
 
+  // Canvas adaptation: the presented canvas follows the window across the
+  // supported range while the logical resolution stays fixed, so gameplay
+  // coordinates never depend on the display size.
+  const viewportChecks = [];
+  for (const size of [
+    { width: 1280, height: 720 },
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+  ]) {
+    await protocol.send("Emulation.setDeviceMetricsOverride", {
+      width: size.width,
+      height: size.height,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await delay(250);
+    const viewport = await evaluate(
+      protocol,
+      "globalThis.__syntaxErrorAppSmoke.getViewportState()",
+    );
+    const designedRatio = viewport.designed.width / viewport.designed.height;
+    const canvasRatio = viewport.canvas.width / viewport.canvas.height;
+    // Letterboxing fills one axis exactly and never overflows the other, so a
+    // canvas that ignored the window would fail the "fills an axis" check.
+    const fillsWidth = Math.abs(viewport.canvas.width - viewport.window.width) <= 2;
+    const fillsHeight = Math.abs(viewport.canvas.height - viewport.window.height) <= 2;
+    assertRuntime(
+      viewport.logical.width === viewport.designed.width
+        && viewport.logical.height === viewport.designed.height
+        && viewport.canvas.width <= viewport.window.width + 2
+        && viewport.canvas.height <= viewport.window.height + 2
+        && (fillsWidth || fillsHeight)
+        && Math.abs(canvasRatio - designedRatio) < 0.02,
+      `Canvas did not adapt to a ${size.width}x${size.height} window`,
+      { requested: size, viewport, fillsWidth, fillsHeight },
+    );
+    viewportChecks.push(`${size.width}x${size.height}`);
+  }
+  await protocol.send("Emulation.clearDeviceMetricsOverride");
+
+  // Production budgets: initial load under 3s and heap under 200MB.
+  const budgets = await evaluate(protocol, `(() => {
+    const navigation = performance.getEntriesByType("navigation")[0];
+    return {
+      loadMs: navigation ? navigation.loadEventEnd - navigation.startTime : null,
+      domContentLoadedMs: navigation
+        ? navigation.domContentLoadedEventEnd - navigation.startTime
+        : null,
+      usedHeapMB: performance.memory
+        ? performance.memory.usedJSHeapSize / (1024 * 1024)
+        : null,
+    };
+  })()`);
+  assertRuntime(
+    Number.isFinite(budgets.loadMs)
+      && budgets.loadMs < 3000
+      && Number.isFinite(budgets.usedHeapMB)
+      && budgets.usedHeapMB < 200,
+    "Production bundle exceeded the load time or memory budget",
+    budgets,
+  );
+
   if (protocol.exceptions.length > 0 || protocol.consoleErrors.length > 0) {
     throw new Error([...protocol.exceptions, ...protocol.consoleErrors].join("\n"));
   }
@@ -592,7 +775,11 @@ try {
       + "Jugar route, Level 2 Merge inversion/respawn/wall resolution/restart, "
       + "Level 4 warning collision/HUD/delay/immunity/death reset, "
       + "Level 5 all-mechanics load, active Garbage Collector timer, goal completion "
-      + "and persisted progression, and runtime cleanup verified; no JavaScript exceptions",
+      + "and persisted progression, and runtime cleanup verified; "
+      + "menu->level music crossfade, mid-level theme change without gameplay rebuild, "
+      + `canvas adaptation at ${viewportChecks.join(" / ")}, `
+      + `load ${Math.round(budgets.loadMs)}ms < 3000ms, `
+      + `heap ${budgets.usedHeapMB.toFixed(1)}MB < 200MB; no JavaScript exceptions`,
   );
 } finally {
   if (protocol?.socket?.readyState === WebSocket.OPEN) {
@@ -603,13 +790,12 @@ try {
     }
   }
   if (browser && browser.exitCode === null) browser.kill();
+  // Windows keeps the profile files locked until the browser process is gone,
+  // so wait for the real exit before deleting the temporary user-data-dir.
+  await waitForBrowserExit(browser);
   if (server) await new Promise((resolveClose) => server.close(resolveClose));
-  if (profileDirectory) {
-    rmSync(profileDirectory, {
-      recursive: true,
-      force: true,
-      maxRetries: 5,
-      retryDelay: 100,
-    });
-  }
+  // Cleanup must never mask the assertion result: on Windows the profile can
+  // still be locked (EPERM/EBUSY) after exit, so retry and then warn instead
+  // of throwing out of the finally block.
+  await removeDirectoryBestEffort(profileDirectory);
 }

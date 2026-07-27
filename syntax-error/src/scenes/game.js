@@ -160,6 +160,9 @@ function installGameSmokeApi({
   hud,
   visualEffects,
   setWarningCount,
+  getLevelCompleted,
+  completeLevel,
+  applyTheme,
 }) {
   if (typeof window === "undefined") return () => {};
   const params = new URLSearchParams(window.location.search);
@@ -193,6 +196,7 @@ function installGameSmokeApi({
       cooldownRemaining: player.cooldownTimer,
       warningCount: player.warningCount,
       controlsInverted: player.areControlsInverted(),
+      inputPipeline: player.getInputPipelineState?.() ?? null,
     },
     x: player.pos.x,
     y: player.pos.y,
@@ -231,7 +235,7 @@ function installGameSmokeApi({
     ),
     death: deathSystem.getState(),
     garbageCollector: garbageCollector?.getState() ?? null,
-    levelComplete: Boolean(levelCompleted),
+    levelComplete: Boolean(getLevelCompleted?.()),
     pause: pauseRuntime.getState(),
     gameplayRootPaused: Boolean(gameplayRoot.paused),
     theme: getTheme(),
@@ -273,6 +277,15 @@ function installGameSmokeApi({
       player.pos.y = zone.position.y;
       return true;
     },
+    touchWarning(index = 0) {
+      const zones = parsedLevel.mechanicZones.filter((entry) => entry.role === "warning");
+      const zone = zones[index];
+      if (!zone) return false;
+      player.resetPlayerMovement();
+      player.pos.x = zone.position.x;
+      player.pos.y = zone.position.y;
+      return true;
+    },
     activateMechanicSwitch(mechanicId, switchId) {
       return mechanicRuntimes.get(mechanicId)?.activateSwitch?.(switchId) ?? false;
     },
@@ -301,6 +314,12 @@ function installGameSmokeApi({
       player.vel.y = velY;
     },
     activateComment: () => player.activateComment(),
+    // Mirrors the production mid-level path (pause -> settings -> theme):
+    // persist through the contract, then repaint the live scene in place.
+    changeTheme(theme) {
+      settingsContract?.setTheme?.(theme);
+      return applyTheme?.(theme) ?? null;
+    },
     setWarningCount,
     signalMergeConflict: (details) => visualEffects.showMergeConflict(details),
     setGarbageCollectorProgress: visualEffects.setGarbageCollectorProgress,
@@ -429,6 +448,10 @@ export function registerGameScene(k, {
       return player.warningCount;
     };
     player.on?.(PRESENTATION_EVENTS.WARNING_COUNT_CHANGED, setWarningCount);
+    // The warning mechanic owns the authoritative counter, so mirror its
+    // collection event into the presentation counter. Without this bridge the
+    // HUD and the respawn contract disagree with the mechanic's own state.
+    player.on?.("warning-collected", setWarningCount);
 
     const checkpointState = createCheckpointState(parsedLevel.spawn.position);
     const checkpointObjects = instantiated.checkpoints.filter(Boolean);
@@ -622,6 +645,9 @@ export function registerGameScene(k, {
       hud,
       visualEffects,
       setWarningCount,
+      getLevelCompleted: () => levelCompleted,
+      completeLevel,
+      applyTheme,
     });
     gameplayRoot.add([{
       id: "game-smoke-cleanup",

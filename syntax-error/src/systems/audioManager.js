@@ -124,6 +124,15 @@ export class AudioManager {
     return this._currentMusic?.id ?? null;
   }
 
+  /**
+   * Track requested by the last playMusic/crossfadeTo call. When autoplay is
+   * blocked there is no voice yet, so this is the only observable record of the
+   * scene's intent.
+   */
+  get desiredMusic() {
+    return this._desiredMusicId ?? null;
+  }
+
   get failedResources() {
     return [...this._failedResources];
   }
