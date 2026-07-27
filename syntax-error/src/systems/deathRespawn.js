@@ -135,6 +135,7 @@ export function attachDeathRespawnSystem(k, {
   respawnDelay = RESPAWN_DELAY,
   invulnerabilityDuration = RESPAWN_INVULNERABILITY,
   feedbackPosition,
+  palette,
 } = {}) {
   if (!gameplayRoot || !player || !checkpointState) {
     throw new TypeError("gameplayRoot, player, and checkpointState are required");
@@ -147,11 +148,12 @@ export function attachDeathRespawnSystem(k, {
     respawnDelay,
     invulnerabilityDuration,
   });
+  const initialFeedbackColor = palette?.danger ?? [248, 81, 73];
   const feedback = gameplayRoot.add([
     k.text("FATAL ERROR · REINICIANDO...", { size: 28 }),
     k.pos(feedbackPosition ?? k.vec2(k.width() / 2, 110)),
     k.anchor("center"),
-    k.color(248, 81, 73),
+    k.color(...initialFeedbackColor),
     k.z(500),
     "death-feedback",
   ]);
@@ -225,6 +227,13 @@ export function attachDeathRespawnSystem(k, {
 
   return Object.freeze({
     requestDeath,
+    applyPalette(nextPalette) {
+      const danger = nextPalette?.danger;
+      if (Array.isArray(danger) && danger.length >= 3) {
+        feedback.color = k.rgb(danger[0], danger[1], danger[2]);
+      }
+      return feedback.color;
+    },
     getState() {
       const state = machine.getState();
       return Object.freeze({
