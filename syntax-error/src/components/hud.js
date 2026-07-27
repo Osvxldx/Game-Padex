@@ -377,7 +377,10 @@ export function createGameplayVisualEffects(k, {
   const root = parent.add([k.pos(0, 0), k.z(360), "gameplay-visual-effects"]);
 
   const robot = root.add([
-    k.text("[GC]", { size: 26 }),
+    // KAPLAY parses "[word]" as a styled-text tag, so the opening bracket is
+    // escaped to render the literal "[GC]" label instead of throwing
+    // "Styled text error: unclosed tags GC" while building the scene.
+    k.text("\\[GC]", { size: 26 }),
     k.pos(k.width() - 45, 120),
     k.anchor("center"),
     k.color(...currentPalette.danger),

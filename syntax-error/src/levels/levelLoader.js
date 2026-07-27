@@ -304,6 +304,7 @@ export function parseLevelData(levelData, {
   const platforms = [];
   const lethalObstacles = [];
   const checkpoints = [];
+  const goals = [];
   const mechanicZones = [];
   let spawn = null;
 
@@ -341,6 +342,16 @@ export function parseLevelData(levelData, {
         });
         checkpoints.push(checkpoint);
         entities.push(checkpoint);
+        return;
+      }
+
+      if (descriptor.kind === TILE_KINDS.GOAL) {
+        const goal = Object.freeze({
+          id: `goal-${goals.length + 1}`,
+          ...entity,
+        });
+        goals.push(goal);
+        entities.push(goal);
         return;
       }
 
@@ -400,6 +411,7 @@ export function parseLevelData(levelData, {
     }),
     spawn,
     checkpoints: Object.freeze(checkpoints),
+    goals: Object.freeze(goals),
     platforms: Object.freeze(platforms),
     lethalObstacles: Object.freeze(lethalObstacles),
     mechanicZones: Object.freeze(mechanicZones),
@@ -437,6 +449,7 @@ export function instantiateParsedLevel(k, parsedLevel, {
     byId,
     byKind,
     checkpoints: Object.freeze(parsedLevel.checkpoints.map((entry) => byId.get(entry.id))),
+    goals: Object.freeze((parsedLevel.goals ?? []).map((entry) => byId.get(entry.id))),
     platforms: Object.freeze(byKind.get(TILE_KINDS.PLATFORM) ?? []),
     lethalObstacles: Object.freeze(byKind.get(TILE_KINDS.LETHAL) ?? []),
     mechanicZones: Object.freeze(parsedLevel.mechanicZones.map((entry) => byId.get(entry.id))),

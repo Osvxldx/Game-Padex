@@ -205,8 +205,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear `src/levels/level3.js`
     - _Requisitos: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13. Mecánica #4: Warnings
-  - [ ] 13.1 Implementar mecánica Sistema de Warnings para Nivel 4
+- [x] 13. Mecánica #4: Warnings
+  - [x] 13.1 Implementar mecánica Sistema de Warnings para Nivel 4
     - Crear `src/mechanics/warningSystem.js`
     - Colisión con señal ⚠️ incrementa contador de warnings
     - Retardo de input: `t_delay = 50ms * (1 + 0.15 * N)` para N warnings
@@ -218,21 +218,21 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear `src/levels/level4.js`
     - _Requisitos: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
 
-  - [ ]* 13.2 Escribir property test: Fórmula monotónica de retardo
+  - [x]* 13.2 Escribir property test: Fórmula monotónica de retardo
     - **Property 3: Fórmula Monotónica de Retardo de Warnings**
     - Verificar que para todo N >= 0 y M > N, retardo(M) > retardo(N)
     - **Valida: Requisitos 8.2**
 
-  - [ ]* 13.3 Escribir property test: Límite máximo de warnings
+  - [x]* 13.3 Escribir property test: Límite máximo de warnings
     - **Property 8: Límite Máximo de Warnings**
     - Verificar que el contador nunca excede 20 y colisiones adicionales no incrementan
     - **Valida: Requisitos 8.6**
 
-- [ ] 14. Checkpoint - Verificar mecánicas de niveles
+- [x] 14. Checkpoint - Verificar mecánicas de niveles
   - Asegurar que todos los tests pasan, preguntar al usuario si surgen dudas.
 
-- [ ] 15. Nivel 5: Producción (todas combinadas)
-  - [ ] 15.1 Implementar Nivel 5 combinando todas las mecánicas
+- [x] 15. Nivel 5: Producción (todas combinadas)
+  - [x] 15.1 Implementar Nivel 5 combinando todas las mecánicas
     - Crear `src/levels/level5.js` con tilemap del nivel final
     - Incluir al menos 1 instancia activa de cada mecánica: GC, Merge, Loop, Warnings
     - Estructurar con al menos 4 secciones individuales + 1 sección combinada
@@ -254,8 +254,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Asegurar contraste visual suficiente entre jugador, obstáculos y fondo en todos los temas
     - _Requisitos: 3.2, 3.6, 4.5, 5.3, 6.7, 10.2, 16.4, 16.5, 19.2, 19.3_
 
-- [ ] 17. Integración final, testing y deploy
-  - [ ] 17.1 Integración completa de todos los sistemas
+- [x] 17. Integración final, testing y deploy
+  - [x] 17.1 Integración completa de todos los sistemas
     - Conectar flujo completo: Menú → Selección → Juego → Pausa → Completación
     - Verificar transiciones de escena con crossfade de audio
     - Verificar persistencia end-to-end: completar nivel → reiniciar → verificar carga
@@ -263,18 +263,24 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Adaptar canvas a tamaño de ventana (1280x720 a 3840x2160)
     - _Requisitos: 13.1-13.8, 17.1, 17.2, 17.3, 18.1, 18.2, 18.3_
 
-  - [ ]* 17.2 Escribir tests de integración
+  - [x]* 17.2 Escribir tests de integración
     - Test de flujo completo de nivel: iniciar → checkpoint → morir → reaparecer
     - Test de persistencia end-to-end: completar nivel → LocalStorage → reiniciar → verificar
     - Test de audio + escenas: crossfade al cambiar nivel
     - Test de tema + juego: cambio mid-level sin afectar posición
+    - Los cuatro escenarios se ejecutan contra el bundle de producción en
+      `scripts/runtime-smoke.mjs` (`npm run smoke`), que conduce el juego real en
+      Chrome headless vía CDP en lugar de simular las escenas
     - _Requisitos: 12.3, 11.5, 10.5_
 
-  - [ ] 17.3 Configurar build de producción y deploy
+  - [x] 17.3 Configurar build de producción y deploy
     - Configurar `vite build` para producción optimizada
     - Verificar carga inicial < 3 segundos
     - Verificar uso de memoria < 200 MB
     - Generar bundle estático listo para deploy
+    - El presupuesto de carga y memoria se mide en el smoke sobre `dist/`; el
+      artefacto se empaqueta con `npm run package` (multiplataforma) y se publica
+      con el workflow `.github/workflows/deploy.yml`
     - _Requisitos: 17.1, 17.2, 17.3_
 
 - [ ] 18. Checkpoint final - Verificación completa

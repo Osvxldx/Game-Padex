@@ -19,6 +19,7 @@ import {
   PLAYER_SPEED,
 } from "../constants.js";
 import { resetPlayerAfterRespawn } from "../systems/deathRespawn.js";
+import { DelayedInputQueue } from "../mechanics/warningSystem.js";
 
 function createControllerHarness() {
   const input = {
@@ -273,4 +274,32 @@ test("death respawn resets movement but preserves control inversion", () => {
 
   const newSession = createControllerHarness();
   assert.equal(newSession.player.areControlsInverted(), false);
+});
+
+
+test("warning delay runs before Merge inversion while assisted jump stays intact", () => {
+  const harness = createControllerHarness();
+  harness.player.setInputGate(new DelayedInputQueue({ delayProvider: () => 50 }));
+  harness.player.setControlsInverted(true);
+  harness.setDt(0.025);
+  harness.input.down.add("d");
+
+  harness.update();
+  assert.equal(harness.player.velocityX, 0);
+  harness.update();
+  assert.equal(harness.player.velocityX, -PLAYER_SPEED);
+  assert.deepEqual(harness.player.getInputPipelineState().order, [
+    "raw-input",
+    "warning-delay",
+    "merge-inversion",
+    "movement",
+  ]);
+
+  harness.setGrounded(true);
+  harness.input.pressed.add("space");
+  harness.input.down.add("space");
+  harness.update();
+  assert.equal(harness.player.vel.y, 0);
+  harness.update();
+  assert.equal(harness.player.vel.y, -PLAYER_JUMP_FORCE);
 });

@@ -11,6 +11,8 @@ import { LEVEL_1 } from "../levels/level1.js";
 import { attachGarbageCollector } from "../mechanics/garbageCollector.js";
 import { LEVEL_3 } from "../levels/level3.js";
 import { LEVEL_2 } from "../levels/level2.js";
+import { LEVEL_4 } from "../levels/level4.js";
+import { LEVEL_5 } from "../levels/level5.js";
 import { attachLevelMechanics } from "../mechanics/mechanicRegistry.js";
 import {
   LevelValidationError,
@@ -30,7 +32,7 @@ import {
 import { createPauseRuntime } from "./pauseMenu.js";
 
 export const GAME_SCENE = "game";
-export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3 });
+export const LEVEL_REGISTRY = Object.freeze({ 1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3, 4: LEVEL_4, 5: LEVEL_5 });
 
 const PLAYER_COLLIDER_WIDTH = 20;
 const PLAYER_COLLIDER_HEIGHT = 48;
@@ -158,6 +160,9 @@ function installGameSmokeApi({
   hud,
   visualEffects,
   setWarningCount,
+  getLevelCompleted,
+  completeLevel,
+  applyTheme,
 }) {
   if (typeof window === "undefined") return () => {};
   const params = new URLSearchParams(window.location.search);
@@ -191,6 +196,7 @@ function installGameSmokeApi({
       cooldownRemaining: player.cooldownTimer,
       warningCount: player.warningCount,
       controlsInverted: player.areControlsInverted(),
+      inputPipeline: player.getInputPipelineState?.() ?? null,
     },
     x: player.pos.x,
     y: player.pos.y,
@@ -229,6 +235,7 @@ function installGameSmokeApi({
     ),
     death: deathSystem.getState(),
     garbageCollector: garbageCollector?.getState() ?? null,
+    levelComplete: Boolean(getLevelCompleted?.()),
     pause: pauseRuntime.getState(),
     gameplayRootPaused: Boolean(gameplayRoot.paused),
     theme: getTheme(),
@@ -270,11 +277,29 @@ function installGameSmokeApi({
       player.pos.y = zone.position.y;
       return true;
     },
+    touchWarning(index = 0) {
+      const zones = parsedLevel.mechanicZones.filter((entry) => entry.role === "warning");
+      const zone = zones[index];
+      if (!zone) return false;
+      player.resetPlayerMovement();
+      player.pos.x = zone.position.x;
+      player.pos.y = zone.position.y;
+      return true;
+    },
     activateMechanicSwitch(mechanicId, switchId) {
       return mechanicRuntimes.get(mechanicId)?.activateSwitch?.(switchId) ?? false;
     },
     loadLevel(levelId) {
       k.go(GAME_SCENE, { levelId });
+      return true;
+    },
+    reachGoal: () => completeLevel?.() ?? false,
+    moveToGoal(index = 0) {
+      const object = instantiated.goals?.[index];
+      if (!object) return false;
+      player.resetPlayerMovement();
+      player.pos.x = object.levelTileData.position.x;
+      player.pos.y = object.levelTileData.position.y;
       return true;
     },
     crossKillPlane() {
@@ -289,6 +314,12 @@ function installGameSmokeApi({
       player.vel.y = velY;
     },
     activateComment: () => player.activateComment(),
+    // Mirrors the production mid-level path (pause -> settings -> theme):
+    // persist through the contract, then repaint the live scene in place.
+    changeTheme(theme) {
+      settingsContract?.setTheme?.(theme);
+      return applyTheme?.(theme) ?? null;
+    },
     setWarningCount,
     signalMergeConflict: (details) => visualEffects.showMergeConflict(details),
     setGarbageCollectorProgress: visualEffects.setGarbageCollectorProgress,
@@ -317,6 +348,7 @@ export function registerGameScene(k, {
   settingsContract,
   audioManager,
   onMenu,
+  onLevelComplete,
 } = {}) {
   k.scene(sceneName, (request) => {
     const resolution = resolveLevelRequest(request, levelRegistry);
@@ -416,6 +448,10 @@ export function registerGameScene(k, {
       return player.warningCount;
     };
     player.on?.(PRESENTATION_EVENTS.WARNING_COUNT_CHANGED, setWarningCount);
+    // The warning mechanic owns the authoritative counter, so mirror its
+    // collection event into the presentation counter. Without this bridge the
+    // HUD and the respawn contract disagree with the mechanic's own state.
+    player.on?.("warning-collected", setWarningCount);
 
     const checkpointState = createCheckpointState(parsedLevel.spawn.position);
     const checkpointObjects = instantiated.checkpoints.filter(Boolean);
@@ -523,6 +559,72 @@ export function registerGameScene(k, {
       onThemeChange: applyTheme,
     });
 
+    // Level completion: reaching the goal tile triggers victory overlay,
+    // persists progress, and resets mechanic state via "level-complete" event.
+    let levelCompleted = false;
+    let leavingAfterVictory = false;
+    const isFinalLevel = parsedLevel.id >= 5;
+    const completeLevel = () => {
+      if (levelCompleted) return false;
+      levelCompleted = true;
+      player.trigger?.("level-complete", parsedLevel.id);
+      gameplayRoot.paused = true;
+      if (pauseRuntime.controller) pauseRuntime.controller.paused = true;
+      try {
+        audioManager?.playSfx?.("ability");
+      } catch { /* Audio is optional */ }
+      onLevelComplete?.(parsedLevel.id);
+
+      const overlay = k.add([
+        k.pos(0, 0),
+        ...(typeof k.fixed === "function" ? [k.fixed()] : []),
+        k.z(2000),
+        "level-complete-overlay",
+      ]);
+      overlay.add([
+        k.rect(k.width(), k.height()),
+        k.pos(0, 0),
+        k.anchor("topleft"),
+        k.color(5, 8, 12),
+        k.opacity(0.9),
+      ]);
+      overlay.add([
+        k.text(isFinalLevel ? "JUEGO COMPLETADO" : "NIVEL COMPLETADO", { size: 56 }),
+        k.pos(k.width() / 2, k.height() / 2 - 70),
+        k.anchor("center"),
+        k.color(...palette.accent),
+      ]);
+      overlay.add([
+        k.text(
+          isFinalLevel
+            ? "// deploy exitoso: sobreviviste a producción"
+            : `Nivel ${parsedLevel.id} superado`,
+          { size: 22 },
+        ),
+        k.pos(k.width() / 2, k.height() / 2),
+        k.anchor("center"),
+        k.color(...palette.ui),
+      ]);
+      overlay.add([
+        k.text("Enter o Escape: volver al menú", { size: 18 }),
+        k.pos(k.width() / 2, k.height() / 2 + 70),
+        k.anchor("center"),
+        k.color(...palette.ui),
+      ]);
+
+      k.add([{
+        id: "level-complete-controller",
+        update() {
+          if (leavingAfterVictory) return;
+          if (!k.isKeyPressed("enter") && !k.isKeyPressed("escape")) return;
+          leavingAfterVictory = true;
+          onMenu?.();
+        },
+      }, "level-complete-controller"]);
+      return true;
+    };
+    player.onCollide("level-goal", completeLevel);
+
     const uninstallSmokeApi = installGameSmokeApi({
       k,
       sessionId,
@@ -543,6 +645,9 @@ export function registerGameScene(k, {
       hud,
       visualEffects,
       setWarningCount,
+      getLevelCompleted: () => levelCompleted,
+      completeLevel,
+      applyTheme,
     });
     gameplayRoot.add([{
       id: "game-smoke-cleanup",

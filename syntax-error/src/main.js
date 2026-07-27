@@ -13,7 +13,7 @@ import {
   registerSettingsScene,
 } from "./scenes/settings.js";
 import { registerTestLevelScene } from "./scenes/testLevel.js";
-import audioManager from "./systems/audioManager.js";
+import audioManager, { DEFAULT_CROSSFADE_SECONDS } from "./systems/audioManager.js";
 import saveManager from "./systems/saveManager.js";
 import themeManager from "./systems/themeManager.js";
 
@@ -22,6 +22,8 @@ const k = kaplay({
   height: CANVAS_HEIGHT,
   background: [13, 17, 23],
   global: false,
+  stretch: true,
+  letterbox: true,
 });
 
 k.setGravity(GRAVITY);
@@ -50,6 +52,12 @@ registerGameScene(k, {
   settingsContract,
   audioManager,
   onMenu: () => goToMenu(),
+  onLevelComplete: (levelId) => {
+    // SaveManager uses 0-based level indices and enforces sequential progression.
+    if (Number.isInteger(levelId) && levelId >= 1) {
+      saveManager.completeLevel(levelId - 1);
+    }
+  },
 });
 
 registerLevelSelectScene(k, {
@@ -84,6 +92,38 @@ registerMenuScene(k, {
     settings: () => k.go(SETTINGS_SCENE, { origin: MENU_SCENE }),
   },
 });
+
+// Smoke-only observability for cross-scene concerns that no single scene owns:
+// music crossfade intent and the canvas/viewport contract.
+if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("smoke")) {
+  globalThis.__syntaxErrorAppSmoke = Object.freeze({
+    getAudioState: () => ({
+      currentMusic: audioManager.currentMusic,
+      desiredMusic: audioManager.desiredMusic,
+      autoplayBlocked: audioManager.autoplayBlocked,
+      failedResources: audioManager.failedResources,
+      musicVolume: audioManager.musicVolume,
+      sfxVolume: audioManager.sfxVolume,
+      crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
+    }),
+    getViewportState: () => {
+      const canvas = document.querySelector("canvas");
+      const rect = canvas?.getBoundingClientRect();
+      return {
+        // Logical resolution stays fixed so gameplay coordinates never depend
+        // on the window size; only the presented canvas scales.
+        logical: { width: k.width(), height: k.height() },
+        designed: { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
+        canvas: canvas
+          ? { width: Math.round(rect.width), height: Math.round(rect.height) }
+          : null,
+        window: { width: window.innerWidth, height: window.innerHeight },
+      };
+    },
+    setTheme: (theme) => settingsContract.setTheme(theme),
+    readSettings: () => settingsContract.readValues(),
+  });
+}
 
 audioManager.playMusic("menu");
 k.go(MENU_SCENE);

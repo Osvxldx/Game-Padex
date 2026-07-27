@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { LEVEL_1 } from "../levels/level1.js";
-import { LEVEL_3 } from "../levels/level3.js";
 import { LEVEL_2 } from "../levels/level2.js";
+import { LEVEL_3 } from "../levels/level3.js";
+import { LEVEL_4 } from "../levels/level4.js";
+import { LEVEL_5 } from "../levels/level5.js";
 import {
   LEVEL_REGISTRY,
   firstIncompleteLevelId,
@@ -65,6 +67,28 @@ test("Level 2 is registered and resolves through dynamic game routing", () => {
     ok: true,
     level: LEVEL_2,
     levelId: 2,
+    source: "registry",
+  });
+});
+
+
+test("Level 4 warning system is registered and resolves through dynamic routing", () => {
+  assert.equal(LEVEL_REGISTRY[4], LEVEL_4);
+  assert.deepEqual(resolveLevelRequest({ levelId: 4 }), {
+    ok: true,
+    level: LEVEL_4,
+    levelId: 4,
+    source: "registry",
+  });
+});
+
+
+test("Level 5 combined finale is registered and resolves through dynamic routing", () => {
+  assert.equal(LEVEL_REGISTRY[5], LEVEL_5);
+  assert.deepEqual(resolveLevelRequest({ levelId: 5 }), {
+    ok: true,
+    level: LEVEL_5,
+    levelId: 5,
     source: "registry",
   });
 });
