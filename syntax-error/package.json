@@ -2,11 +2,12 @@
 	"name": "syntax-error",
 	"type": "module",
 	"scripts": {
-		"test": "node --test",
+		"test": "node --test src/components/*.test.js src/scenes/*.test.js src/systems/deathRespawn*.test.js src/systems/gameplayState.test.js && vitest --run src/systems/saveManager.test.js src/systems/themeManager.test.js",
 		"smoke": "node scripts/runtime-smoke.mjs",
 		"build": "vite build",
 		"dev": "vite",
 		"preview": "vite preview",
+		"test:vitest": "vitest --run",
 		"zip": "npm run build && mkdir -p dist && zip -r dist/game.zip dist -x \"**/.DS_Store\""
 	},
 	"dependencies": {
@@ -15,6 +16,7 @@
 	"devDependencies": {
 		"@types/node": "^26.1.1",
 		"fast-check": "4.9.0",
-		"vite": "^8.1.5"
+		"vite": "^8.1.5",
+		"vitest": "^4.1.10"
 	}
 }

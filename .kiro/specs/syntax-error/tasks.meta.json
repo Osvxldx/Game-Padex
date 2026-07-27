@@ -129,6 +129,54 @@
         "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
         "timestamp": 1785037717693
       }
+    ],
+    "6.1 Implementar SaveManager con serialización/deserialización": [
+      {
+        "executionId": "fa3f82d3-e6b0-4db8-82f8-70dfc0f90132",
+        "chatSessionId": "sess_42deb191-e770-441a-bd04-ec4fddf82abb",
+        "timestamp": 1784866194145
+      },
+      {
+        "executionId": "fa3f82d3-e6b0-4db8-82f8-70dfc0f90132",
+        "chatSessionId": "sess_42deb191-e770-441a-bd04-ec4fddf82abb",
+        "timestamp": 1784866644547
+      },
+      {
+        "executionId": "c47331b2-c652-451d-a544-fe9506121213",
+        "chatSessionId": "sess_e56a474f-b368-4ed5-ac9b-e218a7341b10",
+        "timestamp": 1784866683020
+      },
+      {
+        "executionId": "c47331b2-c652-451d-a544-fe9506121213",
+        "chatSessionId": "sess_e56a474f-b368-4ed5-ac9b-e218a7341b10",
+        "timestamp": 1784866735404
+      }
+    ],
+    "6. Sistema de persistencia (LocalStorage)": [
+      {
+        "executionId": "fa3f82d3-e6b0-4db8-82f8-70dfc0f90132",
+        "chatSessionId": "sess_42deb191-e770-441a-bd04-ec4fddf82abb",
+        "timestamp": 1784866646005
+      }
+    ],
+    "5.1 Implementar ThemeManager con los 5 temas": [
+      {
+        "executionId": "80f05a06-af34-4ec6-8747-fa7b672c7c8e",
+        "chatSessionId": "sess_15c8a579-93b4-453e-8532-8c488f384b09",
+        "timestamp": 1784866905169
+      },
+      {
+        "executionId": "80f05a06-af34-4ec6-8747-fa7b672c7c8e",
+        "chatSessionId": "sess_15c8a579-93b4-453e-8532-8c488f384b09",
+        "timestamp": 1784867175885
+      }
+    ],
+    "5. Sistema de temas visuales (5 temas)": [
+      {
+        "executionId": "80f05a06-af34-4ec6-8747-fa7b672c7c8e",
+        "chatSessionId": "sess_15c8a579-93b4-453e-8532-8c488f384b09",
+        "timestamp": 1784867176853
+      }
     ]
   }
 }
