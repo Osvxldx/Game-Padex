@@ -112,6 +112,39 @@ function normalizeSymbolConfig(value = {}) {
   return Object.freeze(result);
 }
 
+function normalizeTileOverrides(value = {}, tilemap) {
+  requireRecord(value, "level.tileOverrides");
+  const result = {};
+
+  for (const [coordinate, config] of Object.entries(value)) {
+    const match = /^(\d+),(\d+)$/.exec(coordinate);
+    if (!match) {
+      fail("keys must use 'row,column' non-negative coordinates", `level.tileOverrides.${coordinate}`);
+    }
+    const row = Number(match[1]);
+    const column = Number(match[2]);
+    if (row >= tilemap.length || column >= tilemap[0].length) {
+      fail("coordinate is outside the tilemap", `level.tileOverrides.${coordinate}`);
+    }
+    requireRecord(config, `level.tileOverrides.${coordinate}`);
+    if (config.tags !== undefined && (
+      !Array.isArray(config.tags)
+      || config.tags.some((tag) => typeof tag !== "string" || !tag)
+    )) {
+      fail("tags must be an array of non-empty strings", `level.tileOverrides.${coordinate}.tags`);
+    }
+    if (config.params !== undefined && !isRecord(config.params)) {
+      fail("must be an object", `level.tileOverrides.${coordinate}.params`);
+    }
+    result[`${row},${column}`] = Object.freeze({
+      ...config,
+      ...(config.tags ? { tags: Object.freeze([...config.tags]) } : {}),
+      ...(config.params ? { params: Object.freeze({ ...config.params }) } : {}),
+    });
+  }
+  return Object.freeze(result);
+}
+
 function normalizeMechanics(value = []) {
   if (!Array.isArray(value)) fail("must be an array", "level.mechanics");
   const ids = new Set();
@@ -146,28 +179,47 @@ function normalizeLevelData(levelData) {
     ? null
     : requireNonEmptyString(levelData.musicTrack, "level.musicTrack");
 
+  const tilemap = normalizeTilemap(levelData.tilemap);
+
   return Object.freeze({
     id: levelData.id,
     name: requireNonEmptyString(levelData.name, "level.name"),
-    tilemap: normalizeTilemap(levelData.tilemap),
+    tilemap,
     tileSize: normalizeTileSize(levelData.tileSize),
     origin: normalizePoint(levelData.origin, "level.origin"),
     musicTrack,
     symbolConfig: normalizeSymbolConfig(levelData.symbolConfig),
+    tileOverrides: normalizeTileOverrides(levelData.tileOverrides, tilemap),
     mechanics: normalizeMechanics(levelData.mechanics),
   });
 }
 
-function normalizedDescriptor(symbol, baseTileConfig, symbolConfig) {
+function normalizedDescriptor(symbol, baseTileConfig, symbolConfig, tileOverride = {}) {
   const base = baseTileConfig[symbol];
   if (!isRecord(base)) return null;
-  const override = symbolConfig[symbol] ?? {};
-  const kind = override.kind ?? base.kind;
+  const symbolOverride = symbolConfig[symbol] ?? {};
+  const kind = tileOverride.kind ?? symbolOverride.kind ?? base.kind;
   if (!VALID_KINDS.has(kind)) {
     fail(`unsupported tile kind '${kind}'`, `level.symbolConfig.${symbol}.kind`);
   }
-  const tags = [...new Set([...(base.tags ?? []), ...(override.tags ?? [])])];
-  return Object.freeze({ ...base, ...override, kind, tags: Object.freeze(tags) });
+  const tags = [...new Set([
+    ...(base.tags ?? []),
+    ...(symbolOverride.tags ?? []),
+    ...(tileOverride.tags ?? []),
+  ])];
+  const params = {
+    ...(base.params ?? {}),
+    ...(symbolOverride.params ?? {}),
+    ...(tileOverride.params ?? {}),
+  };
+  return Object.freeze({
+    ...base,
+    ...symbolOverride,
+    ...tileOverride,
+    kind,
+    tags: Object.freeze(tags),
+    params: Object.freeze(params),
+  });
 }
 
 /** Convert a tile coordinate to immutable world-space bounds and center. */
@@ -262,6 +314,7 @@ export function parseLevelData(levelData, {
         symbol,
         tileConfig,
         level.symbolConfig,
+        level.tileOverrides[`${row},${column}`],
       );
       if (!descriptor) fail("uses an unknown symbol", tilePath);
       if (descriptor.kind === TILE_KINDS.EMPTY) return;

@@ -3,6 +3,10 @@
     "4.5 Escribir property test: Reset de estado al reaparecer": {
       "status": "passed",
       "lastRunTimestamp": 1785120768908
+    },
+    "11.2 Escribir property test: Idempotencia de inversión de controles": {
+      "status": "passed",
+      "lastRunTimestamp": 1785123947617
     }
   },
   "executionHistory": {
@@ -195,6 +199,20 @@
         "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
         "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
         "timestamp": 1785120859984
+      }
+    ],
+    "11.1 Implementar mecánica Barrera Merge para Nivel 2": [
+      {
+        "executionId": "c8bea7a5-8fd1-4317-a693-bb9b0ca1d82e",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785123150430
+      }
+    ],
+    "11.2 Escribir property test: Idempotencia de inversión de controles": [
+      {
+        "executionId": "12f08702-0fd0-45c6-9fc6-d2db564408b2",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785123884895
       }
     ]
   }

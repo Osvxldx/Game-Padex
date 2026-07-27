@@ -174,7 +174,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - **Valida: Requisitos 5.1, 5.2**
 
 - [ ] 11. Mecánica #2: Merge Barrier
-  - [ ] 11.1 Implementar mecánica Barrera Merge para Nivel 2
+  - [x] 11.1 Implementar mecánica Barrera Merge para Nivel 2
     - Crear `src/mechanics/mergeBarrier.js`
     - Muros que bloquean físicamente hasta activar switch correcto
     - 2-4 switches por sección, exactamente 1 correcto
@@ -186,7 +186,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear `src/levels/level2.js`
     - _Requisitos: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8_
 
-  - [ ]* 11.2 Escribir property test: Idempotencia de inversión de controles
+  - [x]* 11.2 Escribir property test: Idempotencia de inversión de controles
     - **Property 6: Idempotencia de Inversión de Controles**
     - Verificar que múltiples activaciones incorrectas equivalen a una sola inversión
     - **Valida: Requisitos 6.3, 6.4**

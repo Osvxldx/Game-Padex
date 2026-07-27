@@ -134,6 +134,7 @@ export function playerComponent(k, options = {}) {
     controllerJumpActive: false,
     jumpConsumed: true,
     wasGrounded: false,
+    controlsInverted: false,
 
     update() {
       const dt = Math.max(0, k.dt());
@@ -160,6 +161,10 @@ export function playerComponent(k, options = {}) {
       }
       if (k.isKeyDown("right") || k.isKeyDown("d")) {
         moveDirection += 1;
+      }
+
+      if (this.controlsInverted) {
+        moveDirection *= -1;
       }
 
       this.velocityX = calculateHorizontalVelocity(
@@ -237,6 +242,16 @@ export function playerComponent(k, options = {}) {
       this.jumpBufferTimer = 0;
       this.wasGrounded = false;
       this.trigger?.("player-jump");
+    },
+
+    /** Explicit control-effect API used by level mechanics. */
+    setControlsInverted(inverted) {
+      this.controlsInverted = Boolean(inverted);
+      return this.controlsInverted;
+    },
+
+    areControlsInverted() {
+      return this.controlsInverted;
     },
 
     /** Respawn/restart hook owned by the movement controller. */
