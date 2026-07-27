@@ -241,8 +241,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Al completar: registrar finalización en SaveManager, mostrar pantalla de victoria
     - _Requisitos: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 16. Pulido visual, efectos y HUD
-  - [ ] 16.1 Implementar HUD, efectos visuales y pulido
+- [x] 16. Pulido visual, efectos y HUD
+  - [x] 16.1 Implementar HUD, efectos visuales y pulido
     - Crear `src/components/hud.js` con indicadores: cooldown, warnings, nivel actual
     - Implementar efecto de muerte (animación de desintegración/glitch)
     - Implementar efecto de activación de checkpoint (flash + partículas)
