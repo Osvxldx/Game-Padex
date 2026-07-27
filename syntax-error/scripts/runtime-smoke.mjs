@@ -276,6 +276,9 @@ try {
       && loaded.player.y === loaded.spawn.position.y
       && loaded.entities.checkpoints >= 1
       && loaded.entities.lethal >= 1
+      && loaded.entities.movingPlatforms >= 1
+      && loaded.garbageCollector?.thresholdSeconds === 5
+      && loaded.garbageCollector.progress >= 0
       && loaded.mechanicZones.some((zone) => (
         zone.symbol === "G"
         && zone.mechanicType === "garbageCollector"

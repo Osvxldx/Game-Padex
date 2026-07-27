@@ -24,6 +24,12 @@ test("Level 1 parses tile entities, spawn, checkpoint, and GC contract", () => {
   assert.equal(parsed.checkpoints.length, 1);
   assert.deepEqual(parsed.checkpoints[0].position, { x: 408, y: 648 });
   assert.equal(parsed.platforms.length, 48);
+  assert.equal(
+    parsed.platforms.filter((platform) => (
+      platform.tags.includes("moving-platform")
+    )).length,
+    9,
+  );
   assert.equal(parsed.lethalObstacles.length, 1);
   assert.equal(parsed.mechanicZones.length, 1);
   assert.deepEqual(

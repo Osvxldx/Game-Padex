@@ -157,8 +157,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Integrar checkpoints: activación visual, punto de reaparición
     - _Requisitos: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 20.1_
 
-- [ ] 10. Mecánica #1: Garbage Collector
-  - [ ] 10.1 Implementar mecánica Recolector de Basura para Nivel 1
+- [x] 10. Mecánica #1: Garbage Collector
+  - [x] 10.1 Implementar mecánica Recolector de Basura para Nivel 1
     - Crear `src/mechanics/garbageCollector.js`
     - Timer de inactividad de 5 segundos: si no hay input de movimiento, eliminar jugador
     - Reiniciar timer al presionar tecla de movimiento

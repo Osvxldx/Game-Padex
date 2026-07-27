@@ -1,7 +1,4 @@
-/**
- * Level 1 data only. Garbage Collector behavior intentionally belongs to task
- * 10; this task exposes its declarative zone and configuration contract.
- */
+/** Complete Level 1 layout for the Garbage Collector mechanic. */
 export const LEVEL_1 = Object.freeze({
   id: 1,
   name: "Garbage Collector",
@@ -14,11 +11,11 @@ export const LEVEL_1 = Object.freeze({
     "..........................",
     "......................====",
     "..........................",
-    ".............====.........",
+    ".............PPPP.........",
     "..........................",
     "..................====....",
     "..........................",
-    "......=====...............",
+    "......PPPPP...............",
     "..........................",
     "...........=====..........",
     "..........................",

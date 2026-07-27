@@ -2,7 +2,7 @@
   "pbtResults": {
     "4.5 Escribir property test: Reset de estado al reaparecer": {
       "status": "passed",
-      "lastRunTimestamp": 1785120768908
+      "lastRunTimestamp": 1785122915527
     }
   },
   "executionHistory": {
@@ -195,6 +195,30 @@
         "executionId": "dd714382-1455-43b6-bb42-83344fcbbf95",
         "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
         "timestamp": 1785120859984
+      }
+    ],
+    "10.1 Implementar mecánica Recolector de Basura para Nivel 1": [
+      {
+        "executionId": "56a1058e-1272-4ec6-88a6-b0ee475757e5",
+        "chatSessionId": "sess_9922dacc-28f5-488e-8562-e72fac75bf93",
+        "timestamp": 1785121905317
+      }
+    ],
+    "10. Mecánica #1: Garbage Collector": [
+      {
+        "executionId": "b9fd43c6-7783-4f7c-9183-7776da0f825f",
+        "chatSessionId": "sess_9922dacc-28f5-488e-8562-e72fac75bf93",
+        "timestamp": 1785122487140
+      },
+      {
+        "executionId": "8d1dffbe-a01e-47e3-940f-b225b5a0b5b4",
+        "chatSessionId": "sess_13e56e09-dd19-4861-bebe-785240510190",
+        "timestamp": 1785122627229
+      },
+      {
+        "executionId": "8d1dffbe-a01e-47e3-940f-b225b5a0b5b4",
+        "chatSessionId": "sess_13e56e09-dd19-4861-bebe-785240510190",
+        "timestamp": 1785122932434
       }
     ]
   }
