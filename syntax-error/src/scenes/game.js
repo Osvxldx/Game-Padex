@@ -1,4 +1,11 @@
 import { commentAbilityComponent } from "../components/commentAbility.js";
+import {
+  PRESENTATION_EVENTS,
+  createAccessibleGameplayPalette,
+  createGameplayHud,
+  createGameplayVisualEffects,
+  normalizeWarningCount,
+} from "../components/hud.js";
 import { playerComponent } from "../components/player.js";
 import { LEVEL_1 } from "../levels/level1.js";
 import {
@@ -141,6 +148,9 @@ function installGameSmokeApi({
   instantiated,
   settingsContract,
   getTheme,
+  hud,
+  visualEffects,
+  setWarningCount,
 }) {
   if (typeof window === "undefined") return () => {};
   const params = new URLSearchParams(window.location.search);
@@ -172,6 +182,7 @@ function installGameSmokeApi({
       velY: player.vel.y,
       isCommented: player.isCommented,
       cooldownRemaining: player.cooldownTimer,
+      warningCount: player.warningCount,
     },
     x: player.pos.x,
     y: player.pos.y,
@@ -207,6 +218,8 @@ function installGameSmokeApi({
     gameplayRootPaused: Boolean(gameplayRoot.paused),
     theme: getTheme(),
     settings: settingsContract?.readValues?.(),
+    hud: hud.getState(),
+    visualEffects: visualEffects.getState(),
   });
 
   const api = {
@@ -244,6 +257,11 @@ function installGameSmokeApi({
       player.vel.y = velY;
     },
     activateComment: () => player.activateComment(),
+    setWarningCount,
+    signalMergeConflict: (details) => visualEffects.showMergeConflict(details),
+    setGarbageCollectorProgress: visualEffects.setGarbageCollectorProgress,
+    spawnGhostClone: visualEffects.spawnGhostClone,
+    clearGhostClones: visualEffects.clearGhostClones,
     openPause: () => pauseRuntime.openPause(),
     resume: () => pauseRuntime.resume(),
     openPauseSettings: () => pauseRuntime.openSettings(),
@@ -293,7 +311,11 @@ export function registerGameScene(k, {
     nextGameSessionId += 1;
     const gameplayRoot = k.add([k.pos(0, 0), "gameplay-root"]);
     let currentTheme = settingsContract?.readValues?.().theme ?? "terminal";
-    let palette = getTilePalette(currentTheme);
+    const initialBasePalette = getTilePalette(currentTheme);
+    if (initialBasePalette === getTilePalette("terminal") && currentTheme !== "terminal") {
+      currentTheme = "terminal";
+    }
+    let palette = createAccessibleGameplayPalette(getTilePalette(currentTheme));
     k.setBackground(...palette.background);
 
     const instantiated = instantiateParsedLevel(k, parsedLevel, {
@@ -319,6 +341,7 @@ export function registerGameScene(k, {
       commentAbilityComponent(k),
       "player",
     ]);
+    player.warningCount = 0;
 
     const title = gameplayRoot.add([
       k.text(`Nivel ${parsedLevel.id}: ${parsedLevel.name}`, { size: 22 }),
@@ -337,6 +360,30 @@ export function registerGameScene(k, {
       "gameplay-ui",
     ]);
 
+    const hud = createGameplayHud(k, {
+      parent: gameplayRoot,
+      player,
+      levelId: parsedLevel.id,
+      levelName: parsedLevel.name,
+      getWarningCount: () => player.warningCount,
+      palette,
+    });
+    const visualEffects = createGameplayVisualEffects(k, {
+      parent: gameplayRoot,
+      player,
+      palette,
+    });
+    if (parsedLevel.mechanicZones.some((zone) => zone.mechanic.type === "garbageCollector")) {
+      visualEffects.setGarbageCollectorProgress({ progress: 0, active: true });
+    }
+
+    const setWarningCount = (value) => {
+      player.warningCount = normalizeWarningCount(value);
+      hud.clearWarningOverride();
+      return player.warningCount;
+    };
+    player.on?.(PRESENTATION_EVENTS.WARNING_COUNT_CHANGED, setWarningCount);
+
     const checkpointState = createCheckpointState(parsedLevel.spawn.position);
     const checkpointObjects = instantiated.checkpoints.filter(Boolean);
     let activeCheckpointId = null;
@@ -351,33 +398,43 @@ export function registerGameScene(k, {
         object === checkpointObject,
         { confirm: object === checkpointObject },
       ));
+      visualEffects.playCheckpointActivation({ position: data.position });
       return true;
     };
     player.onCollide("checkpoint", activateCheckpoint);
 
-    const warningResetContract = createWarningResetContract();
+    const warningResetContract = createWarningResetContract({
+      getWarningCount: () => player.warningCount,
+      resetWarnings: () => setWarningCount(0),
+    });
     const deathSystem = attachDeathRespawnSystem(k, {
       gameplayRoot,
       player,
       checkpointState,
       warningResetContract,
       killPlaneY: parsedLevel.worldBounds.bottom + parsedLevel.tileSize.height * 2,
+      palette,
     });
 
-    const applyTheme = (themeId) => {
-      currentTheme = getTilePalette(themeId) === getTilePalette("terminal")
-        && themeId !== "terminal"
+    const applyTheme = (themeId, { animate = true } = {}) => {
+      const basePalette = getTilePalette(themeId);
+      currentTheme = basePalette === getTilePalette("terminal") && themeId !== "terminal"
         ? "terminal"
         : themeId;
-      palette = getTilePalette(currentTheme);
+      const previousPalette = palette;
+      palette = createAccessibleGameplayPalette(getTilePalette(currentTheme));
       k.setBackground(...palette.background);
       instantiated.objects.forEach((object) => object.applyTilePalette?.(palette));
       player.setCommentBaseColor(k.rgb(...palette.player));
       title.color = k.rgb(...palette.ui);
       instructions.color = k.rgb(...palette.ui);
+      hud.applyPalette(palette);
+      deathSystem.applyPalette(palette);
+      visualEffects.applyPalette(palette);
+      if (animate) visualEffects.transitionTheme(previousPalette, palette);
       return currentTheme;
     };
-    applyTheme(currentTheme);
+    applyTheme(currentTheme, { animate: false });
 
     const restartRequest = resolution.source === "registry"
       ? { levelId: parsedLevel.id }
@@ -405,6 +462,9 @@ export function registerGameScene(k, {
       instantiated,
       settingsContract,
       getTheme: () => currentTheme,
+      hud,
+      visualEffects,
+      setWarningCount,
     });
     gameplayRoot.add([{
       id: "game-smoke-cleanup",
