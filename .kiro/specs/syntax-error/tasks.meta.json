@@ -1,0 +1,134 @@
+{
+  "pbtResults": {
+    "4.5 Escribir property test: Reset de estado al reaparecer": {
+      "status": "passed",
+      "lastRunTimestamp": 1785037669894
+    }
+  },
+  "executionHistory": {
+    "1.1 Inicializar proyecto con create-kaplay y configurar Vite": [
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785033716188
+      }
+    ],
+    "1. Scaffolding del proyecto (create-kaplay + Vite)": [
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785033716318
+      }
+    ],
+    "2.1 Implementar componente Player con movimiento horizontal y salto": [
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785033720585
+      },
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785034493888
+      }
+    ],
+    "2. Personaje `;` con movimiento responsivo": [
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785034493986
+      }
+    ],
+    "3.1 Implementar sistema de habilidad Comment Code": [
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785034502043
+      },
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785035341735
+      }
+    ],
+    "3. Habilidad \"Comentar Código\"": [
+      {
+        "executionId": "47c250e7-4d49-414f-adf2-d9893de3c1dd",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785035341822
+      }
+    ],
+    "4.1 Implementar escena de Menú Principal": [
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785035640866
+      },
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785035815733
+      }
+    ],
+    "4.2 Implementar escena de Selección de Nivel": [
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785035823808
+      },
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036197076
+      }
+    ],
+    "4.3 Implementar escena de Configuración": [
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036202209
+      },
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036393024
+      }
+    ],
+    "4.4 Implementar menú de pausa y sistema de muerte/reaparición": [
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036398635
+      },
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036854646
+      }
+    ],
+    "4. Sistema de escenas y navegación (Menú, Level Select, Settings)": [
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036854783
+      }
+    ],
+    "4.5 Escribir property test: Reset de estado al reaparecer": [
+      {
+        "executionId": "8c455b18-8e5a-4a93-95a7-0f2ff4eb2821",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785036865384
+      },
+      {
+        "executionId": "3ae8d960-501e-4184-a0a7-7719b07499ce",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785037491948
+      },
+      {
+        "executionId": "3ae8d960-501e-4184-a0a7-7719b07499ce",
+        "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
+        "timestamp": 1785037717693
+      }
+    ]
+  }
+}
