@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { LEVEL_1 } from "../levels/level1.js";
+import { LEVEL_2 } from "../levels/level2.js";
 import {
+  LEVEL_REGISTRY,
   firstIncompleteLevelId,
   resolveLevelRequest,
 } from "./game.js";
@@ -43,4 +45,15 @@ test("play route chooses the first incomplete level and wraps after completion",
   assert.equal(firstIncompleteLevelId([false, false, false, false, false]), 1);
   assert.equal(firstIncompleteLevelId([true, false, false, false, false]), 2);
   assert.equal(firstIncompleteLevelId([true, true, true, true, true]), 1);
+});
+
+
+test("Level 2 is registered and resolves through dynamic game routing", () => {
+  assert.equal(LEVEL_REGISTRY[2], LEVEL_2);
+  assert.deepEqual(resolveLevelRequest({ levelId: 2 }), {
+    ok: true,
+    level: LEVEL_2,
+    levelId: 2,
+    source: "registry",
+  });
 });
