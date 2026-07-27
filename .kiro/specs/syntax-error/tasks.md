@@ -6,8 +6,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
 
 ## Tareas
 
-- [ ] 1. Scaffolding del proyecto (create-kaplay + Vite)
-  - [ ] 1.1 Inicializar proyecto con create-kaplay y configurar Vite
+- [x] 1. Scaffolding del proyecto (create-kaplay + Vite)
+  - [x] 1.1 Inicializar proyecto con create-kaplay y configurar Vite
     - Ejecutar `npx create-kaplay syntax-error` para generar la estructura base
     - Configurar Vite con hot reload y soporte ESM
     - Crear estructura de directorios: `src/scenes/`, `src/components/`, `src/mechanics/`, `src/systems/`, `src/levels/`, `src/assets/`
@@ -16,8 +16,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Verificar que `npm run dev` levanta el servidor y muestra canvas de KAPLAY
     - _Requisitos: 20.1, 20.2, 20.3_
 
-- [ ] 2. Personaje `;` con movimiento responsivo
-  - [ ] 2.1 Implementar componente Player con movimiento horizontal y salto
+- [x] 2. Personaje `;` con movimiento responsivo
+  - [x] 2.1 Implementar componente Player con movimiento horizontal y salto
     - Crear `src/components/player.js` con el componente custom del jugador
     - Implementar movimiento horizontal a 300px/s con teclas A/D y flechas
     - Implementar desaceleración al soltar tecla (<=100ms hasta detenerse)
@@ -38,8 +38,8 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Verificar que si t < 80ms permite salto, si t >= 80ms lo rechaza
     - **Valida: Requisitos 2.3, 2.5**
 
-- [ ] 3. Habilidad "Comentar Código"
-  - [ ] 3.1 Implementar sistema de habilidad Comment Code
+- [x] 3. Habilidad "Comentar Código"
+  - [x] 3.1 Implementar sistema de habilidad Comment Code
     - Crear `src/components/commentAbility.js` con lógica de la habilidad
     - Activación con Shift o C, duración 0.5s, cooldown 2s
     - Estado "comentado": opacidad 50%, escala de grises, prefijo `// ;`
@@ -55,21 +55,21 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Verificar que toda colisión con obstáculo lógico es ignorada en estado comentado
     - **Valida: Requisitos 3.3, 5.4, 7.4, 8.4**
 
-- [ ] 4. Sistema de escenas y navegación (Menú, Level Select, Settings)
-  - [ ] 4.1 Implementar escena de Menú Principal
+- [x] 4. Sistema de escenas y navegación (Menú, Level Select, Settings)
+  - [x] 4.1 Implementar escena de Menú Principal
     - Crear `src/scenes/menu.js` con opciones: Jugar, Selección de Nivel, Configuración
     - Navegación por teclado entre opciones
     - Transición a la escena correspondiente al seleccionar
     - _Requisitos: 13.1, 13.2_
 
-  - [ ] 4.2 Implementar escena de Selección de Nivel
+  - [x] 4.2 Implementar escena de Selección de Nivel
     - Crear `src/scenes/levelSelect.js` con vista de los 5 niveles
     - Mostrar estados visuales: completado, desbloqueado, bloqueado
     - Nivel 1 desbloqueado por defecto, demás bloqueados
     - Mensaje de 2s al intentar seleccionar nivel bloqueado
     - _Requisitos: 14.1, 14.2, 14.3, 14.4, 14.5_
 
-  - [ ] 4.3 Implementar escena de Configuración
+  - [x] 4.3 Implementar escena de Configuración
     - Crear `src/scenes/settings.js` con controles de volumen y selección de tema
     - Sliders de música y SFX (0.0 a 1.0, incrementos de 0.1)
     - Selector de tema visual entre los 5 temas
@@ -77,7 +77,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Retornar a la pantalla de origen (menú o pausa)
     - _Requisitos: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6_
 
-  - [ ] 4.4 Implementar menú de pausa y sistema de muerte/reaparición
+  - [x] 4.4 Implementar menú de pausa y sistema de muerte/reaparición
     - Implementar pausa con Escape: congelar lógica, mostrar menú
     - Opciones de pausa: Continuar, Reiniciar Nivel, Configuración, Volver al Menú
     - Implementar sistema de muerte: señal visual, reaparición en <500ms
@@ -85,7 +85,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Reintentos infinitos sin límite de vidas
     - _Requisitos: 4.1, 4.2, 4.3, 4.4, 4.5, 13.5, 13.6, 13.7, 13.8_
 
-  - [ ]* 4.5 Escribir property test: Reset de estado al reaparecer
+  - [x]* 4.5 Escribir property test: Reset de estado al reaparecer
     - **Property 7: Reset de Estado al Reaparecer**
     - Verificar que tras morir: posición = checkpoint, velocidad = (0,0), cooldown disponible, warnings = 0
     - **Valida: Requisitos 4.1, 4.3, 3.9**
