@@ -2,7 +2,7 @@
 	"name": "syntax-error",
 	"type": "module",
 	"scripts": {
-		"test": "node --test src/components/*.test.js src/levels/*.test.js src/scenes/*.test.js src/systems/deathRespawn*.test.js src/systems/gameplayState.test.js && vitest --run src/systems/saveManager.test.js src/systems/themeManager.test.js",
+		"test": "node --test src/components/*.test.js src/levels/*.test.js src/scenes/*.test.js src/systems/deathRespawn*.test.js src/systems/gameplayState.test.js && vitest --run src/systems/saveManager.test.js src/systems/themeManager.test.js src/systems/audioManager.test.js",
 		"smoke": "node scripts/runtime-smoke.mjs",
 		"build": "vite build",
 		"dev": "vite",
