@@ -236,6 +236,7 @@ export function playerComponent(k, options = {}) {
       this.coyoteTimer = 0;
       this.jumpBufferTimer = 0;
       this.wasGrounded = false;
+      this.trigger?.("player-jump");
     },
 
     /** Respawn/restart hook owned by the movement controller. */
