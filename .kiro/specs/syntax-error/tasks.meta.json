@@ -2,7 +2,7 @@
   "pbtResults": {
     "4.5 Escribir property test: Reset de estado al reaparecer": {
       "status": "passed",
-      "lastRunTimestamp": 1785120344599
+      "lastRunTimestamp": 1785037669894
     }
   },
   "executionHistory": {
@@ -176,37 +176,6 @@
         "executionId": "80f05a06-af34-4ec6-8747-fa7b672c7c8e",
         "chatSessionId": "sess_15c8a579-93b4-453e-8532-8c488f384b09",
         "timestamp": 1784867176853
-      }
-    ],
-    "7. Sistema de audio (SFX + música)": [
-      {
-        "executionId": "fdefc191-bbcf-4f6c-9f26-4c89e3e205f0",
-        "chatSessionId": "sess_95517d59-e797-415b-b9b3-812be83b15ab",
-        "timestamp": 1785119147356
-      },
-      {
-        "executionId": "fdefc191-bbcf-4f6c-9f26-4c89e3e205f0",
-        "chatSessionId": "sess_95517d59-e797-415b-b9b3-812be83b15ab",
-        "timestamp": 1785119572136
-      }
-    ],
-    "7.1 Implementar AudioManager con SFX y música por nivel": [
-      {
-        "executionId": "fdefc191-bbcf-4f6c-9f26-4c89e3e205f0",
-        "chatSessionId": "sess_95517d59-e797-415b-b9b3-812be83b15ab",
-        "timestamp": 1785119571323
-      }
-    ],
-    "8. Checkpoint - Verificar sistemas base": [
-      {
-        "executionId": "94301828-ced1-4038-beef-c1df86f393fd",
-        "chatSessionId": "sess_fdd0aef3-9609-4245-b452-b7f98283e842",
-        "timestamp": 1785120279072
-      },
-      {
-        "executionId": "94301828-ced1-4038-beef-c1df86f393fd",
-        "chatSessionId": "sess_fdd0aef3-9609-4245-b452-b7f98283e842",
-        "timestamp": 1785120375934
       }
     ]
   }
