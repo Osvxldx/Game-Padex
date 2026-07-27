@@ -196,6 +196,25 @@
         "chatSessionId": "sess_1a116b4e-43ee-43ff-b13f-5d5f52504c2c",
         "timestamp": 1785120859984
       }
+    ],
+    "12.1 Implementar mecánica Bucle Infinito para Nivel 3": [
+      {
+        "executionId": "ae671b76-b216-4190-adb0-5db66d764dae",
+        "chatSessionId": "sess_38e6cbda-11d5-4310-afd3-ba7f0916eb85",
+        "timestamp": 1785122584994
+      },
+      {
+        "executionId": "ae671b76-b216-4190-adb0-5db66d764dae",
+        "chatSessionId": "sess_38e6cbda-11d5-4310-afd3-ba7f0916eb85",
+        "timestamp": 1785123231568
+      }
+    ],
+    "12. Mecánica #3: Bucle Infinito": [
+      {
+        "executionId": "ae671b76-b216-4190-adb0-5db66d764dae",
+        "chatSessionId": "sess_38e6cbda-11d5-4310-afd3-ba7f0916eb85",
+        "timestamp": 1785123231737
+      }
     ]
   }
 }

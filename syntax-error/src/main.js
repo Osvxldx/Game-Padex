@@ -48,6 +48,7 @@ registerTestLevelScene(k, {
 
 registerGameScene(k, {
   settingsContract,
+  audioManager,
   onMenu: () => goToMenu(),
 });
 

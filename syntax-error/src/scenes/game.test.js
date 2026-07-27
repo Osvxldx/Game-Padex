@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { LEVEL_1 } from "../levels/level1.js";
+import { LEVEL_3 } from "../levels/level3.js";
 import {
+  LEVEL_REGISTRY,
   firstIncompleteLevelId,
   resolveLevelRequest,
 } from "./game.js";
@@ -23,6 +25,16 @@ test("dynamic level requests resolve registered IDs and direct LevelData", () =>
     resolveLevelRequest(LEVEL_1, registry),
     { ok: true, level: LEVEL_1, source: "data" },
   );
+});
+
+test("default game registry loads the integrated Level 3", () => {
+  assert.equal(LEVEL_REGISTRY[3], LEVEL_3);
+  assert.deepEqual(resolveLevelRequest({ levelId: 3 }), {
+    ok: true,
+    level: LEVEL_3,
+    levelId: 3,
+    source: "registry",
+  });
 });
 
 test("invalid and unavailable IDs return controlled errors", () => {

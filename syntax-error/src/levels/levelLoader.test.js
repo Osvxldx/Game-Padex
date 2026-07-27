@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { LEVEL_1 } from "./level1.js";
+import { LEVEL_3 } from "./level3.js";
 import {
   LevelValidationError,
   parseLevelData,
@@ -42,6 +43,29 @@ test("Level 1 parses tile entities, spawn, checkpoint, and GC contract", () => {
       params: { inactivitySeconds: 5, section: "intro" },
     },
   );
+});
+
+test("Level 3 exposes three configured Infinite Loop zones", () => {
+  const parsed = parseLevelData(LEVEL_3);
+
+  assert.equal(parsed.id, 3);
+  assert.equal(parsed.name, "Stack Overflow");
+  assert.equal(parsed.musicTrack, "level-3");
+  assert.deepEqual(parsed.spawn.position, { x: 72, y: 648 });
+  assert.equal(parsed.checkpoints.length, 1);
+  assert.equal(parsed.mechanicZones.length, 3);
+  parsed.mechanicZones.forEach((zone) => {
+    assert.equal(zone.symbol, "L");
+    assert.equal(zone.role, "zone");
+    assert.equal(zone.mechanic.type, "infiniteLoop");
+    assert.deepEqual(zone.mechanic.params, {
+      historySeconds: 2,
+      cloneDelaySeconds: 0.1,
+      maxClones: 10,
+      overflowSeconds: 1.5,
+      section: "stack-overflow",
+    });
+  });
 });
 
 test("tile coordinates transform to world bounds and centers for rectangular tiles", () => {

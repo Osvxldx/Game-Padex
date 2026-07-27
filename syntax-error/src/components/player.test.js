@@ -128,6 +128,23 @@ test("controller movement uses KAPLAY-style velocity integration", () => {
   assert.equal(harness.player.pos.x, 106);
 });
 
+test("external mechanics can lock manual movement without pausing the player", () => {
+  const harness = createControllerHarness();
+  harness.setDt(0.02);
+  harness.input.down.add("d");
+  harness.input.pressed.add("space");
+
+  assert.equal(harness.player.setManualControlEnabled(false), false);
+  harness.update();
+
+  assert.equal(harness.player.pos.x, 100);
+  assert.equal(harness.player.vel.y, 0);
+  assert.equal(harness.player.velocityX, 0);
+  assert.equal(harness.player.manualControlEnabled, false);
+  harness.player.resetPlayerMovement();
+  assert.equal(harness.player.manualControlEnabled, true);
+});
+
 test("coyote jump works after leaving ground and is consumed once", () => {
   const harness = createControllerHarness();
   harness.setDt(0.01);
