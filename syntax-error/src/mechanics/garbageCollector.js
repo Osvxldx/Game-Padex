@@ -1,19 +1,26 @@
-import { readRawPlayerInput } from "../components/player.js";
+export const GARBAGE_COLLECTOR_TIMEOUT = 5;
+export const GARBAGE_COLLECTOR_MOVEMENT_KEYS = Object.freeze([
+  "left",
+  "right",
+  "a",
+  "d",
+  "up",
+  "w",
+  "space",
+]);
 
-export const GC_INACTIVITY_SECONDS = 5;
-export const GC_ALERT_PROGRESS = 0.6;
-export const GC_CHASE_DISTANCE = 320;
+const DEFAULT_APPROACH_DISTANCE = 240;
 
-function requirePositive(value, name) {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`${name} must be a finite positive number`);
+function requireNonNegativeFinite(value, name) {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError(`${name} must be a finite non-negative number`);
   }
   return value;
 }
 
-function nonNegativeDelta(value) {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new RangeError("deltaSeconds must be a finite non-negative number");
+function requirePositiveFinite(value, name) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`${name} must be a finite positive number`);
   }
   return value;
 }
@@ -22,254 +29,198 @@ function clamp01(value) {
   return Math.min(1, Math.max(0, value));
 }
 
-function lerp(from, to, amount) {
-  return from + (to - from) * clamp01(amount);
+/** Convert timer progress into the robot's remaining distance to the player. */
+export function calculateRobotApproachOffset(
+  progress,
+  approachDistance = DEFAULT_APPROACH_DISTANCE,
+) {
+  requireNonNegativeFinite(progress, "progress");
+  requireNonNegativeFinite(approachDistance, "approachDistance");
+  return approachDistance * (1 - clamp01(progress));
 }
 
 /**
- * Pure inactivity state machine for the Garbage Collector. Movement resets the
- * timer to zero; a paused frame (commented or otherwise input-locked) holds the
- * current value; idle frames accumulate until the inactivity threshold triggers
- * a single elimination signal.
+ * Deterministic inactivity state machine shared by runtime code and tests.
+ * The timeout transition is emitted once; movement or respawn reset it.
  */
-export function createGarbageCollectorMachine({
-  inactivitySeconds = GC_INACTIVITY_SECONDS,
+export function createGarbageCollectorState({
+  inactivitySeconds = GARBAGE_COLLECTOR_TIMEOUT,
 } = {}) {
-  const threshold = requirePositive(inactivitySeconds, "inactivitySeconds");
-  let elapsed = 0;
-  let triggered = false;
+  const thresholdSeconds = requirePositiveFinite(
+    inactivitySeconds,
+    "inactivitySeconds",
+  );
+  let elapsedSeconds = 0;
+  let paused = false;
+  let hasTriggered = false;
 
   const snapshot = () => Object.freeze({
-    elapsed,
-    threshold,
-    remaining: Math.max(0, threshold - elapsed),
-    progress: clamp01(elapsed / threshold),
-    triggered,
+    elapsedSeconds,
+    remainingSeconds: Math.max(0, thresholdSeconds - elapsedSeconds),
+    thresholdSeconds,
+    progress: clamp01(elapsedSeconds / thresholdSeconds),
+    paused,
+    hasTriggered,
   });
 
   return Object.freeze({
     getState: snapshot,
-    /** Advance one frame. Order: already-triggered > paused > moving > idle. */
-    advance(deltaSeconds, { moving = false, paused = false } = {}) {
-      const dt = nonNegativeDelta(deltaSeconds);
-      if (triggered) {
-        return Object.freeze({ justTriggered: false, paused: false, moved: false, ...snapshot() });
+
+    advance(deltaSeconds, { isPaused = false } = {}) {
+      requireNonNegativeFinite(deltaSeconds, "deltaSeconds");
+      paused = Boolean(isPaused);
+      if (paused || hasTriggered) {
+        return Object.freeze({ ...snapshot(), shouldKill: false });
       }
-      if (paused) {
-        return Object.freeze({ justTriggered: false, paused: true, moved: false, ...snapshot() });
-      }
-      if (moving) {
-        elapsed = 0;
-        return Object.freeze({ justTriggered: false, paused: false, moved: true, ...snapshot() });
-      }
-      elapsed += dt;
-      if (elapsed >= threshold) {
-        elapsed = threshold;
-        triggered = true;
-        return Object.freeze({ justTriggered: true, paused: false, moved: false, ...snapshot() });
-      }
-      return Object.freeze({ justTriggered: false, paused: false, moved: false, ...snapshot() });
+
+      elapsedSeconds = Math.min(
+        thresholdSeconds,
+        elapsedSeconds + deltaSeconds,
+      );
+      const shouldKill = elapsedSeconds >= thresholdSeconds;
+      if (shouldKill) hasTriggered = true;
+      return Object.freeze({ ...snapshot(), shouldKill });
     },
+
+    recordMovement() {
+      elapsedSeconds = 0;
+      paused = false;
+      hasTriggered = false;
+      return snapshot();
+    },
+
     reset() {
-      elapsed = 0;
-      triggered = false;
+      elapsedSeconds = 0;
+      paused = false;
+      hasTriggered = false;
       return snapshot();
     },
   });
 }
 
-/** True when any raw movement key (left/right/jump) is engaged this frame. */
-export function isMovementInput(rawInput = {}) {
-  return Boolean(
-    rawInput.leftDown
-    || rawInput.rightDown
-    || rawInput.jumpDown
-    || rawInput.jumpPressed,
-  );
+function isMovementPressed(k) {
+  return GARBAGE_COLLECTOR_MOVEMENT_KEYS.some((key) => k.isKeyPressed(key));
 }
 
-function objectExists(object) {
-  return Boolean(object)
-    && (typeof object.exists !== "function" || object.exists());
-}
-
-/**
- * Attach the Level 1 / Level 5 Garbage Collector to the gameplay root. The
- * robot approaches the player proportionally to the inactivity timer and
- * eliminates the player through the shared death system when the timer expires.
- *
- * The timer pauses while the player is commented (Requirement 5.4) or otherwise
- * input-locked (e.g. trapped in an Infinite Loop), so simultaneous mechanics in
- * Level 5 cannot cause an unavoidable death while the player has no controls.
- */
-export function attachGarbageCollectorSystem(k, {
+/** Attach Level 1's timer, death transition, HUD, and robot approach visual. */
+export function attachGarbageCollector(k, {
   gameplayRoot,
   player,
-  zones = [],
-  home,
-  requestDeath,
-  audioManager,
-  inactivitySeconds = GC_INACTIVITY_SECONDS,
-  chaseDistance = GC_CHASE_DISTANCE,
-  alertProgress = GC_ALERT_PROGRESS,
+  deathSystem,
+  config = {},
+  palette = {},
+  approachDistance = DEFAULT_APPROACH_DISTANCE,
 } = {}) {
-  if (!k || !gameplayRoot?.add || !player?.pos) {
-    throw new TypeError("KAPLAY context, gameplayRoot, and player are required");
+  if (!gameplayRoot?.add || !player?.pos) {
+    throw new TypeError("gameplayRoot and player are required");
   }
+  if (typeof deathSystem?.requestDeath !== "function") {
+    throw new TypeError("deathSystem.requestDeath is required");
+  }
+  requireNonNegativeFinite(approachDistance, "approachDistance");
 
-  const machine = createGarbageCollectorMachine({ inactivitySeconds });
-  const triggerDeath = typeof requestDeath === "function"
-    ? requestDeath
-    : () => false;
-
-  const firstZone = zones.find((zone) => zone?.pos);
-  const homeX = Number.isFinite(home?.x)
-    ? home.x
-    : Number.isFinite(firstZone?.pos?.x)
-      ? firstZone.pos.x
-      : player.pos.x - chaseDistance;
-  const homeY = Number.isFinite(home?.y)
-    ? home.y
-    : Number.isFinite(firstZone?.pos?.y)
-      ? firstZone.pos.y
-      : player.pos.y;
+  const state = createGarbageCollectorState({
+    inactivitySeconds: config.inactivitySeconds
+      ?? GARBAGE_COLLECTOR_TIMEOUT,
+  });
+  let currentPalette = palette;
 
   const robot = gameplayRoot.add([
-    k.rect(40, 40),
-    k.pos(homeX, homeY),
+    k.text("🤖", { size: 38 }),
+    k.pos(player.pos.x + approachDistance, player.pos.y),
     k.anchor("center"),
-    k.color(248, 81, 73),
-    k.opacity(0.4),
-    k.z(6),
-    "gc-robot",
+    k.scale(1),
+    k.opacity(0.9),
+    k.color(...(currentPalette.danger ?? [248, 81, 73])),
+    k.z(150),
+    "garbage-collector-robot",
   ]);
-  const robotLabel = gameplayRoot.add([
-    k.text("GC", { size: 18 }),
-    k.pos(homeX, homeY),
+  const timerLabel = gameplayRoot.add([
+    k.text("GC: 0.0s", { size: 16 }),
+    k.pos(k.width() - 92, 52),
     k.anchor("center"),
-    k.color(255, 255, 255),
-    k.z(7),
-    "gc-robot-label",
-  ]);
-
-  const hudComponents = [
-    k.text("GC 5.0s", { size: 20 }),
-    k.pos(k.width() - 24, 24),
-    k.anchor("topright"),
-    k.color(248, 81, 73),
-    k.z(220),
-    "gc-hud",
+    k.color(...(currentPalette.ui ?? [201, 209, 217])),
+    k.z(200),
     "gameplay-ui",
-  ];
-  if (typeof k.fixed === "function") hudComponents.push(k.fixed());
-  const hud = gameplayRoot.add(hudComponents);
+    "garbage-collector-timer",
+  ]);
 
-  let alerted = false;
-  let dangerColor = [248, 81, 73];
-  let safeColor = [227, 179, 65];
-
-  const colorFor = (progress) => (progress >= alertProgress ? dangerColor : safeColor);
-
-  const syncRobot = (snap, dt) => {
-    const targetX = player.pos.x - chaseDistance * (1 - snap.progress);
-    const targetY = player.pos.y;
-    const smoothing = Math.min(1, Math.max(0, dt) * 6);
-    if (objectExists(robot)) {
-      robot.pos.x = lerp(robot.pos.x, targetX, smoothing);
-      robot.pos.y = lerp(robot.pos.y, targetY, smoothing);
-      robot.opacity = 0.35 + 0.6 * snap.progress;
-      robot.color = k.rgb(...dangerColor);
-    }
-    if (objectExists(robotLabel)) {
-      robotLabel.pos.x = robot.pos.x;
-      robotLabel.pos.y = robot.pos.y;
-    }
-    hud.text = `GC ${snap.remaining.toFixed(1)}s`;
-    hud.color = k.rgb(...colorFor(snap.progress));
+  const updateVisual = (snapshot) => {
+    const offset = calculateRobotApproachOffset(
+      snapshot.progress,
+      approachDistance,
+    );
+    robot.pos.x = player.pos.x + offset;
+    robot.pos.y = player.pos.y;
+    const size = 0.7 + snapshot.progress * 0.3;
+    robot.scale = k.vec2(size, size);
+    robot.opacity = snapshot.paused ? 0.35 : 0.9;
+    timerLabel.text = snapshot.paused
+      ? `GC: PAUSA ${snapshot.elapsedSeconds.toFixed(1)}s`
+      : `GC: ${snapshot.elapsedSeconds.toFixed(1)}s`;
   };
 
-  const snapRobotHome = () => {
-    if (objectExists(robot)) {
-      robot.pos.x = homeX;
-      robot.pos.y = homeY;
-      robot.opacity = 0.4;
-    }
-    if (objectExists(robotLabel)) {
-      robotLabel.pos.x = homeX;
-      robotLabel.pos.y = homeY;
-    }
-    hud.text = `GC ${machine.getState().remaining.toFixed(1)}s`;
-    hud.color = k.rgb(...safeColor);
-  };
-
-  const isPaused = () => Boolean(
-    player.isCommented
-    || player.manualControlEnabled === false
-    || player.paused,
-  );
+  const respawnSubscription = player.on?.("player-respawn", () => {
+    updateVisual(state.reset());
+  });
 
   const controller = gameplayRoot.add([{
-    id: "garbage-collector-controller",
+    id: "garbageCollectorController",
     update() {
-      if (typeof player.exists === "function" && !player.exists()) return;
-      const dt = Math.max(0, Number(k.dt()) || 0);
-      const rawInput = readRawPlayerInput(k);
-      const moving = isMovementInput(rawInput);
-      const transition = machine.advance(dt, { moving, paused: isPaused() });
+      const isCommented = Boolean(
+        player.isImmuneToLogic?.() ?? player.isCommented,
+      );
+      const isPaused = isCommented || Boolean(player.paused);
+      let transition;
 
-      if (transition.progress >= alertProgress && !alerted && !transition.paused) {
-        alerted = true;
-        try {
-          audioManager?.playSfx?.("gcAlert");
-        } catch {
-          // Audio is optional and must never block the elimination timer.
-        }
-      } else if (transition.progress < alertProgress) {
-        alerted = false;
+      if (!isPaused && isMovementPressed(k)) {
+        transition = { ...state.recordMovement(), shouldKill: false };
+      } else {
+        transition = state.advance(Math.max(0, Number(k.dt()) || 0), {
+          isPaused,
+        });
       }
 
-      syncRobot(machine.getState(), dt);
-
-      if (transition.justTriggered) {
-        triggerDeath("garbage-collector");
+      updateVisual(transition);
+      if (transition.shouldKill) {
+        deathSystem.requestDeath("garbage-collector");
       }
     },
     destroy() {
-      // Child objects are destroyed by the KAPLAY scene graph on scene change.
+      respawnSubscription?.cancel?.();
     },
   }, "garbage-collector-controller"]);
 
-  const reset = () => {
-    machine.reset();
-    alerted = false;
-    snapRobotHome();
-    return machine.getState();
-  };
-
-  player.on?.("player-death", reset);
-  player.on?.("level-complete", reset);
+  updateVisual(state.getState());
 
   return Object.freeze({
-    type: "garbageCollector",
-    machine,
-    reset,
-    getState() {
-      return Object.freeze({
-        ...machine.getState(),
-        alerted,
-        robot: Object.freeze({ x: robot.pos.x, y: robot.pos.y, opacity: robot.opacity }),
-        home: Object.freeze({ x: homeX, y: homeY }),
-        hudText: hud.text,
-      });
-    },
-    applyTheme(palette) {
-      if (palette?.danger) dangerColor = [...palette.danger];
-      if (palette?.warning) safeColor = [...palette.warning];
-      if (objectExists(robot)) robot.color = k.rgb(...dangerColor);
-      hud.color = k.rgb(...colorFor(machine.getState().progress));
-    },
     controller,
     robot,
-    hud,
+    timerLabel,
+    recordMovement() {
+      const snapshot = state.recordMovement();
+      updateVisual(snapshot);
+      return snapshot;
+    },
+    reset() {
+      const snapshot = state.reset();
+      updateVisual(snapshot);
+      return snapshot;
+    },
+    applyPalette(nextPalette = {}) {
+      currentPalette = nextPalette;
+      robot.color = k.rgb(...(currentPalette.danger ?? [248, 81, 73]));
+      timerLabel.color = k.rgb(...(currentPalette.ui ?? [201, 209, 217]));
+    },
+    getState() {
+      const snapshot = state.getState();
+      return Object.freeze({
+        ...snapshot,
+        approachOffset: calculateRobotApproachOffset(
+          snapshot.progress,
+          approachDistance,
+        ),
+      });
+    },
   });
 }

@@ -24,6 +24,10 @@ export const DEFAULT_TILE_CONFIG = Object.freeze({
     kind: TILE_KINDS.PLATFORM,
     tags: ["platform", "level-platform"],
   }),
+  "P": descriptor({
+    kind: TILE_KINDS.PLATFORM,
+    tags: ["platform", "level-platform", "moving-platform"],
+  }),
   "@": descriptor({ kind: TILE_KINDS.SPAWN, tags: ["player-spawn"] }),
   "C": descriptor({
     kind: TILE_KINDS.CHECKPOINT,
@@ -159,10 +163,34 @@ function colorForTileState(tile, palette, state) {
 
 function levelTileComponent(k, tile, initialPalette) {
   let palette = initialPalette;
+  const isMovingPlatform = tile.kind === TILE_KINDS.PLATFORM
+    && tile.tags?.includes("moving-platform");
+  const movingDistance = 72;
+  const movingSpeed = 70;
+  let movingElapsed = 0;
   let mechanicVisualState = "idle";
+
   return {
     id: "levelTile",
     levelTileData: tile,
+    update() {
+      if (!isMovingPlatform) return;
+      movingElapsed += Math.max(0, Number(k.dt()) || 0);
+      const offset = Math.sin(
+        movingElapsed * (movingSpeed / movingDistance),
+      ) * movingDistance;
+      this.pos.x = tile.bounds.x + offset;
+      this.pos.y = tile.bounds.y;
+    },
+    getMovingPlatformState() {
+      if (!isMovingPlatform) return null;
+      return Object.freeze({
+        origin: Object.freeze({ x: tile.bounds.x, y: tile.bounds.y }),
+        distance: movingDistance,
+        speed: movingSpeed,
+        elapsed: movingElapsed,
+      });
+    },
     mechanicVisualState,
     applyTilePalette(nextPalette) {
       palette = nextPalette ?? palette;
