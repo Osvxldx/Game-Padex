@@ -143,7 +143,7 @@ Plan de implementación para "Syntax Error", un plataformas 2D troll con temáti
     - Crear placeholders de audio (tonos generados) para desarrollo
     - _Requisitos: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7_
 
-- [ ] 8. Checkpoint - Verificar sistemas base
+- [x] 8. Checkpoint - Verificar sistemas base
   - Asegurar que todos los tests pasan, preguntar al usuario si surgen dudas.
 
 - [ ] 9. Level Loader y estructura de niveles (tilemaps)
