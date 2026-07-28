@@ -2,7 +2,7 @@ name: Build, verify and deploy
 
 # The game lives in a subdirectory, so every job pins its working directory.
 # Verification runs on every push and pull request; publishing only happens on
-# the default branch so a red build can never reach the live site.
+# main or develop so a red build can never reach the live site.
 on:
   push:
     branches: [main, develop]
@@ -57,7 +57,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
         with:
           path: syntax-error/dist
@@ -65,7 +65,7 @@ jobs:
   deploy:
     name: Publish to GitHub Pages
     needs: verify
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
