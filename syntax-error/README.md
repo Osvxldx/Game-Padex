@@ -1,27 +1,36 @@
-# Folder structure
+# Syntax Error — aplicación web
 
-- `src` - source code for your kaplay project
-- `dist` - distribution folder, contains your index.html, built js bundle and static assets
+Este directorio contiene la aplicación jugable de [Syntax Error](../README.md), un plataformas 2D construido con KAPLAY y Vite. Consulta el README de la raíz para conocer la propuesta, mecánicas, arquitectura, uso de Kiro y evidencia de validación.
 
+## Requisitos
 
-## Development
+- Node.js 22
+- npm
 
-```sh
-$ npm run dev
+## Desarrollo
+
+```bash
+npm ci
+npm run dev
 ```
 
-will start a dev server at http://localhost:8000
+El servidor local se inicia en `http://localhost:3001`.
 
-## Distribution
+## Comandos
 
-```sh
-$ npm run build
+```bash
+npm test          # pruebas unitarias y basadas en propiedades
+npm run build     # genera dist/
+npm run smoke     # valida el bundle real en Chrome mediante CDP
+npm run preview   # previsualiza el build
+npm run package   # genera release/syntax-error.zip
 ```
 
-will build your js files into `dist/`
+## Código fuente
 
-```sh
-$ npm run zip
-```
-
-will build your game and package into a .zip file, you can upload to your server or itch.io / newground etc.
+- `src/components`: jugador, habilidad Comment Code y HUD.
+- `src/levels`: datos declarativos y loader de los cinco niveles.
+- `src/mechanics`: Garbage Collector, Merge Conflict, Stack Overflow y Warnings.
+- `src/scenes`: menú, selección, configuración, pausa y gameplay.
+- `src/systems`: audio, temas, guardado, muerte y respawn.
+- `scripts`: smoke test y empaquetado del artefacto.
